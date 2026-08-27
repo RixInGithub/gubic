@@ -21,4 +21,5 @@ PACKSTRU(MBoot2FBInfo, {
 	uint8_t bPos;
 	uint8_t bSz;
 });
+
 #endif
