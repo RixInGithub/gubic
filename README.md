@@ -22,7 +22,41 @@ thirdly, it sounds funny! can't a man have some fun with a random namegen? no? t
 
 i see, that most desktops try to look 3d, so i thought, if i wanted to have a 3d looking desktop, then why not just do one which is actually 3d?
 
-# where should i expect gubic to work nicely?
+## where should i expect gubic to work nicely?
 
- 1. the [copy.sh v86]() emulator made with wasm. **why?**: because it's cool that an os i make could run on an ordinary browser tab!
+ 1. the [copy.sh v86](https://copy.sh/v86/#setup) emulator made with wasm. **why?**: because it's cool that an os i made could run in just a browser tab. :)
  2. qemu. **why?**: it's the industry standard!
+
+### support not guaranteed, but probably works
+
+ 1. bochs. if you enable the vesa extensions for bochs, there might be some chance of gubic working.
+ 2. virt-manager. although would be cool, i haven't truly tried that out so soon, even though virt-manager virtualizes with the help of kvm/qemu.
+ 3. real hardware. if you disable secure boot (unless you build grub with uefi support? havent done that yet), gubic *might* just work, but don't expect zero missing drivers for your specific hardware.
+
+## requirements...
+
+### ...for building:
+
+ 1. qemu (if you set the `RUN` flag to `1`)
+ 2. gcc
+ 3. binutils
+ 4. grub tools (`grub-file`, `grub-install`, ...) (or similar tools that insert a multiboot2 compatible bootloader)
+
+```sh
+RUN=1 ./build.sh
+```
+
+### ...for running
+
+ 1. normal hardware (emulators should work best)
+
+### ...for debugging
+
+ 1. qemu
+ 2. gdb
+
+```sh
+DEBUG=1 ./build.sh
+```
+
+(the `RUN` flag's default value is `1` if `DEBUG` is `1`)

@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include "structs.h"
+#include "common.h"
 #define die(s, ...) do {fprintf(stderr, "%s: " s "\n", prog, ##__VA_ARGS__);return 1;} while (false)
 
 PACKSTRU(MBoot2Hdr, {
@@ -53,10 +53,6 @@ MBoot2Tag*newTag() {
 	MBoot2Tag*t = tags+pTagLen;
 	memset(t,0,sizeof(MBoot2Tag));
 	return t;
-}
-
-int addPad(uint32_t o) {
-	return 8*((o+7)/8); // close enough
 }
 
 int main(int _ac, char**_al) {

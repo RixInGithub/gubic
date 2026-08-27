@@ -1,11 +1,11 @@
 OUTPUT_FORMAT(binary)
 
 SECTIONS {
-	. = 0x4000;
+	. = 0x2000;
 	.multiboot : {
 		KEEP(*(.multiboot*))
 	}
-	. = 0x4200;
+	. = 0x2200;
 	.text : {
 		*(.text*)
 	}
