@@ -1,0 +1,29 @@
+<svg id="v" width="512" height="512"></svg>
+<pre id="p" style="white-space: pre-wrap;user-select: all"></pre>
+<script>
+function deg2rad(d) {return((d-90)*Math.PI)/180}
+function idek(a) {return((a>=0)&&(a<2))*w+(line/2)}
+
+var line = 8
+var w = parseInt(v.getAttribute("width"))-line
+var div = 2
+Array.from({length:4}).forEach(function(_,idx) {
+	var x = idek(idx)
+	var y = idek(idx-1)
+	var s = deg2rad((idx*90+270)%360)
+    var step = (0-Math.PI)/(div*2)
+    var path = document.createElementNS("http://www.w3.org/2000/svg", "path")
+    path.setAttribute("d",[`m${[x,y]}`].concat(Array.from({length:div+1}, function(_,b) {
+    	c=(w/div)*(div-b)
+    	b*=step
+        return `L${[x,y].map(function(d,e){return(d)+(Math[e?"sin":"cos"](s+b)*c)})}`
+    })).join(""))
+    path.setAttribute("fill","none")
+    path.setAttribute("stroke", "Black")
+    path.setAttribute("stroke-width", line)
+    path.setAttribute("stroke-linejoin", "round")
+    path.setAttribute("stroke-linecap", "round")
+    v.appendChild(path)
+})
+p.innerText = v.outerHTML
+</script>
