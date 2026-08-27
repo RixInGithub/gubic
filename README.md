@@ -3,11 +3,12 @@
 TODO: ss
 
 a huge work in progress, successful, cool:
-	- kernel
-	- operating system
-	- desktop environment + window manager + 3d renderer
-	- userland(?)
-	- and so much more!
+
+ - kernel
+ - operating system
+ - desktop environment + window manager + 3d renderer
+ - userland(?)
+ - and so much more!
 
 ## why "gubic"?
 
@@ -23,5 +24,5 @@ i see, that most desktops try to look 3d, so i thought, if i wanted to have a 3d
 
 # where should i expect gubic to work nicely?
 
-	1. the [copy.sh v86]() emulator made with wasm. **why?**: because it's cool that an os i make could run on an ordinary browser tab!
-	2. qemu. **why?**: it's the industry standard!
+ 1. the [copy.sh v86]() emulator made with wasm. **why?**: because it's cool that an os i make could run on an ordinary browser tab!
+ 2. qemu. **why?**: it's the industry standard!
