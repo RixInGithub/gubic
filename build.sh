@@ -25,6 +25,7 @@ start=128
 mnt=mnt
 DEBUG="${DEBUG:-0}"
 RUN="${RUN:-$DEBUG}"
+GDB="${GDB:-$DEBUG}"
 kflags=
 test "$DEBUG" = 0 || kflags="-DEBUG=1"
 rm -f "$name".img
@@ -50,6 +51,7 @@ test $okay = y || exit 1
 if [ "$RUN" = 1 ]; then
 	echo "running gubic$(test "$DEBUG" = 0 || printf " with debug")..."
 	qflags=
-	test "$DEBUG" = 0 || qflags="-S -s -debugcon stdio"
+	test "$GDB" = 0 || qflags="-S -s"
+	test "$DEBUG" = 0 || qflags="${QFLAGS:+$QFLAGS }-debugcon stdio"
 	qemu-system-x86_64 -drive format=raw,file="$name".img $qflags
 fi
