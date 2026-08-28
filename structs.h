@@ -22,4 +22,25 @@ PACKSTRU(MBoot2FBInfo, {
 	uint8_t bSz;
 });
 
+STRU(Pnt3, {
+	int32_t a;
+	int32_t b;
+	int32_t c;
+});
+
+STRU(Tri3D, {
+	Pnt3 a;
+	Pnt3 b;
+	Pnt3 c;
+});
+
+STRU(Pnt2, {
+	int32_t a;
+	int32_t b;
+});
+
+STRU(Tri32D, {
+	Pnt3 a;
+	Pnt3 b;
+});
 #endif
