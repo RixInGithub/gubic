@@ -50,13 +50,28 @@ RUN=1 ./build.sh
 
  1. normal hardware (emulators should work best)
 
-### ...for debugging
+### ...for debugging...
 
  1. qemu
- 2. gdb
+ 2. gdb (or a gdb compatible debugger) (unless you set `GDB=0`)
+
+the `RUN` flag's default value is `1` if `DEBUG` is `1`
+
+#### ...with gdb
 
 ```sh
 DEBUG=1 ./build.sh
 ```
 
-(the `RUN` flag's default value is `1` if `DEBUG` is `1`)
+#### ...without gdb
+
+```sh
+DEBUG=1 GDB=0 ./build.sh
+```
+
+qemu debugcon logs will still be visible, however, you will not be able to intercept the program with a gdb-compatible debugger (`lldb`, ...)
+
+## huge thanks to...
+
+ 1. chatgpt, who named itself "elara" (***no, i do NOT vibecode. i only ask it for advice.***)
+ 2. the [catk](https://github.com/Rodmatronic/CatK/) maintainers, who showed me examples of grub configuration and installation, qemu debugcon, and so much more!

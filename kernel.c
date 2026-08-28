@@ -99,16 +99,23 @@ uint32_t rgbaFromP32(P32 col) {
 	return (r<<24)|(g<<16)|(b<<8);
 }
 
-void rect(uint32_t col, uint32_t x, uint32_t y, uint32_t w, uint32_t h) {
+void clear(uint32_t col) {
 	P32 abcd = p32FromRGBA(col);
-	uint32_t yCnt = y;
-	while ((yCnt<h+y)&&(yCnt<mb2FB->h)) {
-		uint32_t xCnt = x;
-		while ((xCnt<w+x)&&(xCnt<(mb2FB->p/4))) {
-			fb[(yCnt*(mb2FB->p/4))+xCnt] = abcd;
-			xCnt++;
+	uint32_t pxCnt = 0;
+	uint32_t rowCnt = 0;
+	uint32_t w = mb2FB->w;
+	uint32_t h = mb2FB->h;
+	uint32_t p = (mb2FB->p/4);
+	uint32_t area = h*p;
+	uint32_t blank = p-w;
+	while (pxCnt<area) {
+		fb[pxCnt] = abcd;
+		pxCnt++;
+		rowCnt++;
+		if (rowCnt==w) {
+			pxCnt += blank;
+			rowCnt = 0;
 		}
-		yCnt++;
 	}
 }
 
@@ -157,25 +164,30 @@ static uint32_t blend(uint32_t x, uint32_t y, uint32_t col, float amnt) {
 	return (r<<24)|(g<<16)|(b<<8);
 }
 
+int32_t i32Abs(int32_t a) {
+	return (a<0)?(0-a):a;
+}
+
 float fAbs(float a) {
 	return (a<0)?(0-a):a;
 }
 
-#define SIDE(ax,ay,bx,by,px,py) (((float)(bx)-(float)(ax))*((float)(py)-(float)(ay)))-(((float)(by)-(float)(ay))*((float)(px)-(float)(ax)))
-#define FSIGN(d) ((d)/fAbs(d))
+#define FSIDE(ax,ay,bx,by,px,py) (((float)(bx)-(float)(ax))*((float)(py)-(float)(ay)))-(((float)(by)-(float)(ay))*((float)(px)-(float)(ax)))
+#define I32SIDE(ax,ay,bx,by,px,py) (((int32_t)(bx)-(int32_t)(ax))*((int32_t)(py)-(int32_t)(ay)))-(((int32_t)(by)-(int32_t)(ay))*((int32_t)(px)-(int32_t)(ax)))
+#define I32SIGN(d) ((d)/i32Abs(d))
 
 void tri(uint32_t col, uint32_t x1, uint32_t y1, uint32_t x2, uint32_t y2, uint32_t x3, uint32_t y3) {
 	uint32_t minX = min(min3(x1,x2,x3),(mb2FB->p/4));
 	uint32_t maxX = min(max3(x1,x2,x3),(mb2FB->p/4));
 	uint32_t yCnt = min(min3(y1,y2,y3),mb2FB->h);
 	uint32_t maxY = min(max3(y1,y2,y3),mb2FB->h);
-	float area = FSIGN(SIDE(x1,y1,x2,y2,x3,y3));
+	int32_t area = I32SIGN(I32SIDE(x1,y1,x2,y2,x3,y3));
 	while (yCnt<maxY) {
 		uint32_t xCnt = minX;
 		while (xCnt<maxX) {
 			// msaa
 			#define TRUE_SIDER(n,p1N,p2N,xEx,yEx,nn) do { \
-				float side##n##_##nn = FSIGN(SIDE(x##p1N,y##p1N,x##p2N,y##p2N,(float)(xCnt)+(float)(xEx),(float)(yCnt)+(float)(yEx))); \
+				int32_t side##n##_##nn = I32SIGN(FSIDE(x##p1N,y##p1N,x##p2N,y##p2N,(float)(xCnt)+(float)(xEx),(float)(yCnt)+(float)(yEx))); \
 				if (side##n##_##nn==area) a##n += 1.0; \
 			} while (false)
 			#define SIDER(n,p1N,p2N) TRUE_SIDER(n,p1N,p2N, 0.25, 0.25, 1);TRUE_SIDER(n,p1N,p2N, 0.75, 0.25, 2);TRUE_SIDER(n,p1N,p2N, 0.75, 0.75, 3);TRUE_SIDER(n,p1N,p2N, 0.25, 0.75, 4)
@@ -206,9 +218,9 @@ void k(void) {
 	while (!((mb2FB->fbHi==0)&&((mb2FB->bpp==32)&&(mb2FB->t==1)))) {}
 	qemuDebugL("32bit addr, 32bit bpp & type 1 fb!");
 	fb = mb2FB->fb; // holy framebuffer
-	rect(0x22448800, 0, 0, mb2FB->w, mb2FB->h);
+	clear(0x22448800);
 	qemuDebugL("rendering...");
-	tri(0xff000000, 200, 200, 800, 1000, 1400, 600);
+	tri(0xff800000, 200, 200, 800, 1000, 1400, 600);
 	qemuDebugL("done!");
 	while (true) {}
 	__builtin_unreachable();
