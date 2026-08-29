@@ -33,6 +33,10 @@ i see, that most desktops try to look 3d, so i thought, if i wanted to have a 3d
  2. virt-manager. although would be cool, i haven't truly tried that out so soon, even though virt-manager virtualizes with the help of kvm/qemu.
  3. real hardware. if you disable secure boot (unless you build grub with uefi support? havent done that yet), gubic *might* just work, but don't expect zero missing drivers for your specific hardware.
 
+## todo
+
+ 1. do the gdt
+
 ## requirements...
 
 ### ...for building:
@@ -73,5 +77,6 @@ qemu debugcon logs will still be visible, however, you will not be able to inter
 
 ## huge thanks to...
 
- 1. chatgpt, who named itself "elara" (***no, i do NOT vibecode. i only ask it for advice.***)
- 2. the [catk](https://github.com/Rodmatronic/CatK/) maintainers, who showed me examples of grub configuration and installation, qemu debugcon, and so much more!
+ 1. the [catk](https://github.com/Rodmatronic/CatK/) maintainers, who showed me examples of grub configuration and installation, qemu debugcon, and so much more!
+
+note: ***i do NOT vibecode.***
