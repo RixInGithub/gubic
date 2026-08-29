@@ -3,16 +3,16 @@
 #include "common.h"
 __asm__ (
 	".section .multiboot, \"a\"\n"
-	".incbin \"mboot.bin\"\n"
+	".incbin \"mboot.bin\""
 );
 
 __asm__ (".section .data");
 void*payload = NULL;
 P32*fb;
 MBoot2FBInfo*mb2FB;
-int32_t mouseState[4] = {0};
-bool mouseFirstByte = true;
-uint32_t mouse[2] = {0};
+volatile int32_t mouseState[4] = {0};
+volatile bool mouseFirstByte = true;
+volatile uint32_t mouse[2] = {0};
 P32*offscreen;
 uint32_t memMapSz;
 struct {
@@ -26,8 +26,7 @@ struct {
 	uint8_t bPos;
 	uint8_t bSz;
 } fbDim = {0};
-
-#define fb2use offscreen
+volatile uint32_t msUp = 0;
 
 __asm__ (
 	".section .text\n"
@@ -38,7 +37,8 @@ __asm__ (
 	"jmp ."
 );
 
-void outb(uint16_t port, uint8_t data) {
+static void outb(uint16_t port, uint8_t data) {
+	// source, destination
 	__asm__ volatile (
 		"outb %b1, %w0"
 		:
@@ -46,7 +46,7 @@ void outb(uint16_t port, uint8_t data) {
 	);
 }
 
-uint8_t inb(uint16_t port) {
+static uint8_t inb(uint16_t port) {
 	uint8_t data;
 	__asm__ volatile (
 		"inb %w1, %b0"
@@ -56,24 +56,24 @@ uint8_t inb(uint16_t port) {
 	return data;
 }
 
-void outbNWait(uint16_t port, uint8_t data) {
+static void outbNWait(uint16_t port, uint8_t data) {
 	outb(port,data);
 	outb(0,0x80);
 }
 
-void ps2Write(uint8_t cmd) {
+static void ps2Write(uint8_t cmd) {
 	while (inb(0x64)&2) {}
 	outb(0x64, cmd);
 }
 
-void ps2WriteDat(uint8_t dat) {
+static void ps2WriteDat(uint8_t dat) {
 	while (inb(0x64)&2) {}
 	outb(0x60, dat);
 }
 
-uint8_t ps2Read(void) {
-    while (!(inb(0x64)&1)) {}
-    return inb(0x60);
+static uint8_t ps2Read(void) {
+	while (!(inb(0x64)&1)) {}
+	return inb(0x60);
 }
 
 #define qemuDebugC(c)
@@ -82,11 +82,10 @@ uint8_t ps2Read(void) {
 	#define qemuDebugC(c) outb(0xe9, c)
 #endif
 
-void qemuDebugS(char*s) {
+static void qemuDebugS(char*s) {
 	#if EBUG
 		if (s==NULL) {qemuDebugS("(null)");return;}
 		while (*s) {
-			// source, destination
 			qemuDebugC(*s);
 			s++;
 		}
@@ -99,7 +98,7 @@ void qemuDebugS(char*s) {
 	#define qemuDebugL(s) do {qemuDebugS(s);qemuDebugC(10);} while (false)
 #endif
 
-void __internal__qemuDebugNNewlineless__(uint32_t n, uint8_t shl) {
+static void __internal__qemuDebugNNewlineless__(uint32_t n, uint8_t shl) {
 	shl--;
 	while (true) {
 		uint32_t shBy = shl<<2;
@@ -112,7 +111,7 @@ void __internal__qemuDebugNNewlineless__(uint32_t n, uint8_t shl) {
 	__builtin_unreachable();
 }
 
-void qemuDebugN(uint32_t n) {
+static void qemuDebugN(uint32_t n) {
 	qemuDebugS("0x");
 	__internal__qemuDebugNNewlineless__(n, 8);
 	qemuDebugC(10);
@@ -164,7 +163,7 @@ void*searchTag(uint32_t t, uint32_t*size) {
 	#undef HDRSZ
 }
 
-P32 p32FromRGBA(uint32_t col) {
+static P32 p32FromRGBA(uint32_t col) {
 	col >>= 8; // discard a
 	uint16_t r = (col>>16)&0xff;
 	uint16_t g = (col>>8)&0xff;
@@ -178,7 +177,7 @@ P32 p32FromRGBA(uint32_t col) {
 	return o;
 }
 
-uint32_t rgbaFromP32(P32 col) {
+static uint32_t rgbaFromP32(P32 col) {
 	#define CAPTURE(v) uint16_t v = ((col>>(fbDim.v##Pos))&((1u<<fbDim.v##Sz)-1)&0xff)
 	CAPTURE(r);
 	CAPTURE(g);
@@ -197,7 +196,7 @@ void clear(uint32_t col) {
 	uint32_t area = h*p;
 	uint32_t blank = p-w;
 	while (pxCnt<area) {
-		fb2use[pxCnt] = abcd;
+		offscreen[pxCnt] = abcd;
 		pxCnt++;
 		rowCnt++;
 		if (rowCnt==w) {
@@ -232,28 +231,21 @@ static int32_t clamp(int32_t n, int32_t min, int32_t max) {
 	return (min>n)?min:((max<n)?max:n);
 }
 
-static uint32_t blend(uint32_t x, uint32_t y, uint32_t col, float amnt) {
-	uint32_t rgb = rgbaFromP32(fb2use[(y*fbDim.p)+x]); // osdev wiki says: "Reading from the video memory is slooow! Use double buffering instead." [sic]
-	if (amnt >= 1) return col;
-	if (amnt <= 0) return rgb;
+static uint32_t blend(uint32_t rgb, uint32_t col, uint8_t amnt) {
+	if (amnt >= 4) return col;
+	if (amnt == 0) return rgb;
 	rgb >>= 8;
 	col >>= 8;
-	float r1 = (rgb>>16)&0xff;
-	float r2 = (col>>16)&0xff;
-	r1 += (r2-r1) * amnt;
-	float g1 = (rgb>>8)&0xff;
-	float g2 = (col>>8)&0xff;
-	g1 += (g2-g1) * amnt;
-	float b1 = rgb&0xff;
-	float b2 = col&0xff;
-	b1 += (b2-b1) * amnt;
-	uint32_t r = ((uint32_t)r1)&0xff;
-	uint32_t g = ((uint32_t)g1)&0xff;
-	uint32_t b = ((uint32_t)b1)&0xff;
-	return (r<<24)|(g<<16)|(b<<8);
+	uint8_t r1 = (rgb>>16)&0xff;
+	r1 += ((((col>>16)&0xff)-r1)*amnt)/4;
+	uint8_t g1 = (rgb>>8)&0xff;
+	g1 += ((((col>>8)&0xff)-g1)*amnt)/4;
+	uint8_t b1 = rgb&0xff;
+	b1 += (((col&0xff)-b1)*amnt)/4;
+	return ((((uint32_t)r1)&0xff)<<24)|((((uint32_t)g1)&0xff)<<16)|((((uint32_t)b1)&0xff)<<8);
 }
 
-int32_t i32Abs(int32_t a) {
+static int32_t i32Abs(int32_t a) {
 	return (a<0)?(0-a):a;
 }
 
@@ -294,27 +286,24 @@ void tri(uint32_t col, uint32_t x1, uint32_t y1, uint32_t x2, uint32_t y2, uint3
 				if ((((4*e##n)+(aM*a##n)+(bM*b##n))>0)==(area>0)) aa##n++; \
 			} while (false)
 			#define SIDER(n) TRUE_SIDER(n, 1, 1);TRUE_SIDER(n, 3, 1);TRUE_SIDER(n, 3, 3);TRUE_SIDER(n, 1, 3)
-			uint32_t aa1 = 0;
-			uint32_t aa2 = 0;
-			uint32_t aa3 = 0;
+			uint8_t aa1 = 0;
+			uint8_t aa2 = 0;
+			uint8_t aa3 = 0;
 			SIDER(1);
 			SIDER(2);
 			SIDER(3);
+			bool needBlend = true;
+			P32 abcd;
 			switch (aa1+aa2+aa3) {
-				case 0:
-					if (gotNonTrans) stop = true;
-					break;
+				case 0: break;
 				case 12:
-					gotNonTrans = true;
-					// fallthrough to default case...
-				default: // only >0 now
-					P32 abcd = p32Col;
-					int32_t a = min3(aa1,aa2,aa3);
-					if (a<4) abcd = p32FromRGBA(blend(xCnt,yCnt,col,(float)a/4.0));
-					fb2use[(yCnt*p)+xCnt] = abcd;
+					needBlend = false;
+					abcd = p32Col;
+				default:
+					if (needBlend) abcd = p32FromRGBA(blend(rgbaFromP32(offscreen[(yCnt*fbDim.p)+xCnt]),col,min3(aa1,aa2,aa3))); // osdev wiki says: "Reading from the video memory is slooow! Use double buffering instead." [sic]
+					offscreen[(yCnt*p)+xCnt] = abcd;
 					break;
 			}
-			if (stop) break; // optimization!
 			xCnt++;
 			e1 += a1;
 			e2 += a2;
@@ -334,7 +323,7 @@ void copyOffscreen(void) {
 	uint32_t p = fbDim.p;
 	uint32_t area = h*p;
 	while (cnt<area) {
-		fb[cnt] = fb2use[cnt];
+		fb[cnt] = offscreen[cnt];
 		cnt++;
 	}
 }
@@ -351,18 +340,13 @@ SimplePtr idtr = {sizeof(IDT)*256-1,(uint32_t)&idt};
 	idt[irq].typeAttr = /*BIT(0, 1, 1, 1, 0, 0, 0, 1)*/ 0x8e; \
 } while (false)
 
-void mousierH(void) { // i aint taking chances with the abi today!
-	uint32_t byte;
-	__asm__ volatile (
-		"movb %%al, %0"
-		: 
-		: "m"(byte)
-	);
+void mousierH(void) {
+	uint32_t byte = inb(0x60);
 	byte &= 0xff;
 	if (mouseFirstByte) {
 		mouseFirstByte = false;
 		if (byte==0xfa) { // nope
-			qemuDebugL("mouse: had to skip byte 0xfa!");
+			//qemuDebugL("mouse: had to skip byte 0xfa!");
 			return;
 		}
 	}
@@ -370,17 +354,7 @@ void mousierH(void) { // i aint taking chances with the abi today!
 	/*qemuDebugS("mouse: got byte 0x");
 	__internal__qemuDebugNNewlineless__(byte,2);
 	qemuDebugC(10);*/
-	if (toFill<1) {
-		mouseState[0]++;
-		return;
-	}
-	if (toFill==1) {
-		if ((byte&8)==0) return;
-		if ((byte>>6)!=0) { // osdev wiki says: "The top two bits of the first byte (values 0x80 and 0x40) supposedly show Y and X overflows, respectively. They are not useful. If they are set, you should probably just discard the entire packet."
-			mouseState[0] = -2; // skip next 2 packets
-			return;
-		}
-	}
+	if ((toFill==1)&&(!(byte&8))) return;
 	mouseState[toFill] = byte;
 	mouseState[0]++;
 	if (toFill==3) {
@@ -394,12 +368,15 @@ void mousierH(void) { // i aint taking chances with the abi today!
 	}
 }
 
+void timerH(void) {
+	msUp++;
+}
+
 __asm__ (
 	".section .text\n"
 	".global mouseH\n"
 	"mouseH:\n"
 		"pusha\n" // pusha pusha yo
-		"inb $0x60, %al\n"
 		"call mousierH\n"
 		"movb $0x20, %al\n"
 		"outb %al, $0xa0\n"
@@ -411,26 +388,29 @@ extern void mouseH(void);
 
 __asm__ (
 	".section .text\n"
-	".global timerH\n"
+	".global stubH\n"
 	"stubH:\n"
 		"pusha\n"
+		"movb $0x20, %al\n"
+		"outb %al, $0x20\n"
+		//"outb %al, $0xa0\n"
+		"popa\n"
+		"iret\n"
+);
+extern void stubH(void);
+
+__asm__ (
+	".section .text\n"
+	".global tH\n"
+	"tH:\n"
+		"pusha\n"
+		"call timerH\n"
 		"movb $0x20, %al\n"
 		"outb %al, $0x20\n"
 		"popa\n"
 		"iret\n"
 );
-extern void timerH(void);
-
-__asm__ (
-	".section .text\n"
-	".global stubH\n"
-	"timerH:\n"
-		"movb $0x20, %al\n"
-		"outb %al, $0x20\n"
-		"outb %al, $0xa0\n"
-		"iret\n"
-);
-extern void stubH(void);
+extern void tH(void);
 
 void interruptsSetup(void) {
 	uint16_t irqCnt = 0;
@@ -438,7 +418,7 @@ void interruptsSetup(void) {
 		SETIRQ((uint8_t)irqCnt,stubH);
 		irqCnt++;
 	}
-	SETIRQ(0x20, timerH);
+	SETIRQ(0x20, tH);
 	SETIRQ(0x2c, mouseH);
 	__asm__ volatile (
 		"lidt %0"
@@ -451,29 +431,32 @@ void interruptsSetup(void) {
 	outbNWait(0x21, 0x20);
 	outbNWait(0xa1, 0x28);
 	outbNWait(0x21, 0x04);
-	outbNWait(0xA1, 0x02);
+	outbNWait(0xa1, 0x02);
 	outbNWait(0x21, 0x01);
-	outbNWait(0xA1, 0x01);
-	outb(0x21, 0xFF);
-	outb(0xA1, 0xFF);
-	ps2Write(0xAD);
-	ps2Write(0xA7);
+	outbNWait(0xa1, 0x01);
+	outb(0x21, 0xff);
+	outb(0xa1, 0xff);
+	ps2Write(0xad);
+	ps2Write(0xa7);
 	while (inb(0x64) & 1) {
 		inb(0x60);
 	}
 	ps2Write(0x20);
 	uint8_t status = ps2Read();
-    status |= (1 << 1);
-    status &= ~(1 << 5);
-    ps2Write(0x60);
-    ps2WriteDat(status);
-    ps2Write(0xA8);
-    ps2Write(0xD4);
-    ps2WriteDat(0xF4);
-    inb(0x60); // idfk
-    outb(0x21, 0xFB); 
-    outb(0xA1, 0xEF); 
+	status |= (1 << 1);
+	status &= ~(1 << 5);
+	ps2Write(0x60);
+	ps2WriteDat(status);
+	ps2Write(0xa8);
+	ps2Write(0xd4);
+	ps2WriteDat(0xf4);
+	outb(0x21, 0xfa);
+	outb(0xa1, 0xef);
 	// end
+	uint16_t div = 1193; // Math.round(1193182/x)
+	outb(0x43, 0x36);
+    outb(0x40, (uint8_t)(div&0xFF));
+    outb(0x40, (uint8_t)((div>>8)&0xFF));
 	__asm__ volatile ("sti");
 }
 
@@ -528,15 +511,25 @@ void k(void) {
 	mouse[0] = fbDim.w/2;
 	mouse[1] = fbDim.h/2;
 	interruptsSetup();
-	uint32_t minY = 100;
-	uint32_t maxY = 500;
-	uint32_t y = 300;
+	uint32_t minY = 20;
+	uint32_t maxY = 100;
+	uint32_t y = 60;
 	int32_t yInc = 1;
+	uint32_t fps = 0;
+	uint32_t lastUp = 0;
 	while (true) {
 		clear(0x22448800);
-		tri(0xff800000, 100, 100, 400, 500, 700, y);
+		tri(0xff800000, 20, 20, 80, 100, 140, y);
 		tri(0xffff0000,mouse[0],mouse[1],mouse[0]+16,mouse[1],mouse[0],mouse[1]+16);
 		copyOffscreen();
+		fps++;
+		uint32_t now = msUp;
+		if (now-lastUp>=1e3) {
+			qemuDebugS("fps: ");
+			qemuDebugN(fps);
+			fps = 0;
+			lastUp = now;
+		}
 		y += yInc*11;
 		if (y>=maxY) {
 			// lets say

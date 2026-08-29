@@ -37,7 +37,7 @@ rm -f mboot.bin
 gcc genMultiboot.c -o genMultiboot.x86_64 -O9
 ./genMultiboot.x86_64 mboot.bin 2,1,8192,8192,65536,69632 3,1,8704 1,1,1,2,8,6 5,1,800,600,32 4,1,0
 rm -f mboot
-gcc -m32 -ffreestanding -no-pie -fno-pie -fno-pic -nostdlib -Wl,-Tkernel.ld -Wl,--build-id=none kernel.c -o kernel.x86 -Os -static -fdata-sections -ffunction-sections $kflags
+gcc -m32 -ffreestanding -no-pie -fno-pie -fno-pic -nostdlib -Wl,-Tkernel.ld -Wl,--build-id=none kernel.c -o kernel.x86 -O9 -static -fdata-sections -ffunction-sections $kflags
 grub-file --is-x86-multiboot2 kernel.x86
 echo "kernel + multiboot2 header gen okay"
 # disasm kernel.x86
@@ -55,5 +55,5 @@ if [ "$RUN" = 1 ]; then
 	test "$GDB" = 0 || qflags="-S -s"
 	test "$DEBUG" = 0 || qflags="${qflags:+$qflags }-debugcon stdio"
 	test "$ANTICRASH" = 0 || qflags="${qflags:+$qflags }-d int -no-reboot"
-	qemu-system-x86_64 -drive format=raw,file="$name".img $qflags
+	qemu-system-x86_64 -drive format=raw,file="$name".img -enable-kvm -m 512 $qflags
 fi
