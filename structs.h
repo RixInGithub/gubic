@@ -82,4 +82,22 @@ PACKSTRU(MBoot2Mem, {
 	uint32_t entSz;
 	uint32_t v;
 });
+
+STRU(FBDim, {
+	uint32_t p;
+	uint32_t w;
+	uint32_t h;
+	uint8_t rPos;
+	uint8_t rSz;
+	uint8_t gPos;
+	uint8_t gSz;
+	uint8_t bPos;
+	uint8_t bSz;
+});
+
+STRU(MouseBtns, {
+	bool left;
+	bool mid;
+	bool right;
+});
 #endif

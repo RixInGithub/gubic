@@ -15,18 +15,9 @@ volatile bool mouseFirstByte = true;
 volatile uint32_t mouse[2] = {0};
 P32*offscreen;
 uint32_t memMapSz;
-struct {
-	uint32_t p;
-	uint32_t w;
-	uint32_t h;
-	uint8_t rPos;
-	uint8_t rSz;
-	uint8_t gPos;
-	uint8_t gSz;
-	uint8_t bPos;
-	uint8_t bSz;
-} fbDim = {0};
+FBDim fbDim = {0};
 volatile uint32_t msUp = 0;
+volatile MouseBtns mouseBtns;
 
 __asm__ (
 	".section .text\n"
@@ -163,7 +154,7 @@ void*searchTag(uint32_t t, uint32_t*size) {
 	#undef HDRSZ
 }
 
-static P32 p32FromRGBA(uint32_t col) {
+P32 p32FromRGBA(uint32_t col) {
 	col >>= 8; // discard a
 	uint16_t r = (col>>16)&0xff;
 	uint16_t g = (col>>8)&0xff;
@@ -177,7 +168,7 @@ static P32 p32FromRGBA(uint32_t col) {
 	return o;
 }
 
-static uint32_t rgbaFromP32(P32 col) {
+uint32_t rgbaFromP32(P32 col) {
 	#define CAPTURE(v) uint16_t v = ((col>>(fbDim.v##Pos))&((1u<<fbDim.v##Sz)-1)&0xff)
 	CAPTURE(r);
 	CAPTURE(g);
@@ -231,22 +222,18 @@ static int32_t clamp(int32_t n, int32_t min, int32_t max) {
 	return (min>n)?min:((max<n)?max:n);
 }
 
-static uint32_t blend(uint32_t rgb, uint32_t col, uint8_t amnt) {
+uint32_t blend(uint32_t rgb, uint32_t col, uint8_t amnt) {
 	if (amnt >= 4) return col;
 	if (amnt == 0) return rgb;
 	rgb >>= 8;
 	col >>= 8;
 	uint8_t r1 = (rgb>>16)&0xff;
-	r1 += ((((col>>16)&0xff)-r1)*amnt)/4;
+	r1 += ((((col>>16)&0xff)-r1)*amnt)>>2;
 	uint8_t g1 = (rgb>>8)&0xff;
-	g1 += ((((col>>8)&0xff)-g1)*amnt)/4;
+	g1 += ((((col>>8)&0xff)-g1)*amnt)>>2;
 	uint8_t b1 = rgb&0xff;
 	b1 += (((col&0xff)-b1)*amnt)/4;
 	return ((((uint32_t)r1)&0xff)<<24)|((((uint32_t)g1)&0xff)<<16)|((((uint32_t)b1)&0xff)<<8);
-}
-
-static int32_t i32Abs(int32_t a) {
-	return (a<0)?(0-a):a;
 }
 
 #define MIN(a,b) ((a)<(b))?(a):(b)
@@ -362,8 +349,11 @@ void mousierH(void) {
 		int32_t yMov = mouseState[3];
 		if ((mouseState[1]>>4)&1) xMov |= 0xffffff00;
 		if ((mouseState[1]>>5)&1) yMov |= 0xffffff00;
-		mouse[0] = (uint32_t)clamp((int32_t)(mouse[0])+xMov,0,(int32_t)fbDim.w);
-		mouse[1] = (uint32_t)clamp((int32_t)(mouse[1])-yMov,0,(int32_t)fbDim.h);
+		mouse[0] = (uint32_t)clamp((int32_t)(mouse[0])+xMov,0,(int32_t)(fbDim.w-1));
+		mouse[1] = (uint32_t)clamp((int32_t)(mouse[1])-yMov,0,(int32_t)(fbDim.h-1));
+		mouseBtns.left = mouseState[1]&1;
+		mouseBtns.mid = (mouseState[1]>>2)&1;
+		mouseBtns.right = (mouseState[1]>>1)&1;
 		mouseState[0] = 0;
 	}
 }
@@ -393,7 +383,7 @@ __asm__ (
 		"pusha\n"
 		"movb $0x20, %al\n"
 		"outb %al, $0x20\n"
-		//"outb %al, $0xa0\n"
+		"outb %al, $0xa0\n"
 		"popa\n"
 		"iret\n"
 );
@@ -422,7 +412,7 @@ void interruptsSetup(void) {
 	SETIRQ(0x2c, mouseH);
 	__asm__ volatile (
 		"lidt %0"
-		: 
+		:
 		: "m"(idtr)
 	);
 	// interrupts, mouse, and everything in between.
@@ -455,8 +445,8 @@ void interruptsSetup(void) {
 	// end
 	uint16_t div = 1193; // Math.round(1193182/x)
 	outb(0x43, 0x36);
-    outb(0x40, (uint8_t)(div&0xFF));
-    outb(0x40, (uint8_t)((div>>8)&0xFF));
+	outb(0x40, (uint8_t)(div&0xFF));
+	outb(0x40, (uint8_t)((div>>8)&0xFF));
 	__asm__ volatile ("sti");
 }
 
@@ -508,54 +498,24 @@ void k(void) {
 	}
 	offscreen = (P32*)ptr->baseLo;
 	// your programme will resume as usual now.
-	mouse[0] = fbDim.w/2;
-	mouse[1] = fbDim.h/2;
+	mouse[0] = fbDim.w>>1;
+	mouse[1] = fbDim.h>>1;
 	interruptsSetup();
-	uint32_t minY = 20;
-	uint32_t maxY = 100;
-	uint32_t y = 60;
-	int32_t yInc = 1;
-	uint32_t fps = 0;
+	uint32_t dt = 0;
 	uint32_t lastUp = 0;
+	uint32_t now;
 	while (true) {
 		clear(0x22448800);
-		tri(0xff800000, 20, 20, 80, 100, 140, y);
+		tri(0xff800000, 100, 100, 400, 500, mouseBtns.left?mouse[0]:700, mouseBtns.left?mouse[1]:300);
 		tri(0xffff0000,mouse[0],mouse[1],mouse[0]+16,mouse[1],mouse[0],mouse[1]+16);
 		copyOffscreen();
-		fps++;
-		uint32_t now = msUp;
-		if (now-lastUp>=1e3) {
-			qemuDebugS("fps: ");
-			qemuDebugN(fps);
-			fps = 0;
-			lastUp = now;
-		}
-		y += yInc*11;
-		if (y>=maxY) {
-			// lets say
-			// y = 10
-			// max y = 9
-			// i want y to become 8
-			// 10-9=1
-			// 9-1=8
-			// 9-(10-9) = 9-10+9 = (2*9)-10?
-			// replace 9 with maxY, 10 with y
-			y = (2*maxY)-y;
-			yInc = -1;
-			continue;
-		}
-		if (y<=minY) {
-			// lets say
-			// y = 3
-			// min y = 4
-			// i want y to become 5
-			// 4-3=1
-			// 4+1=5
-			// 4+(4-3) = 4+4-3 = (2*4)-3? huh?
-			// replace 4 with minY, 3 with y
-			y = (minY*2)-y;
-			yInc = 1;
-		}
+		do {
+			now = msUp;
+			dt = now-lastUp;
+		} while (dt<1);
+		lastUp = now;
+		qemuDebugS("fps: ");
+		qemuDebugN(1000/dt);
 	}
 	__builtin_unreachable();
 }

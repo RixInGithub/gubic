@@ -20,6 +20,11 @@ stuffWithLoop() {
 	sudo grub-install --target=i386-pc --boot-directory="$mnt" --recheck "$dev"
 }
 
+noGrub() {
+	echo "sanity check failed"
+	exit $1
+}
+
 name=gubic
 start=128
 mnt=mnt
@@ -35,10 +40,10 @@ printf "label: dos\nstart=$start, type=07, bootable\n" | sfdisk "$name".img > /d
 echo "disk creation okay"
 rm -f mboot.bin
 gcc genMultiboot.c -o genMultiboot.x86_64 -O9
-./genMultiboot.x86_64 mboot.bin 2,1,8192,8192,65536,69632 3,1,8704 1,1,1,2,8,6 5,1,800,600,32 4,1,0
-rm -f mboot
+./genMultiboot.x86_64 mboot.bin 2,1,8192,8192,65536,69632 3,1,8704 1,1,1,2,8,6 5,1,1366,768,32 4,1,0
 gcc -m32 -ffreestanding -no-pie -fno-pie -fno-pic -nostdlib -Wl,-Tkernel.ld -Wl,--build-id=none kernel.c -o kernel.x86 -O9 -static -fdata-sections -ffunction-sections $kflags
-grub-file --is-x86-multiboot2 kernel.x86
+rm -f genMultiboot.x86_64 mboot.bin
+grub-file --is-x86-multiboot2 kernel.x86 || noGrub $?
 echo "kernel + multiboot2 header gen okay"
 # disasm kernel.x86
 dev="$(sudo losetup --find --partscan --show "$name".img)"

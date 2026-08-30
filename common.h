@@ -3,7 +3,6 @@
 #include "structs.h"
 
 int addPad(uint32_t o);
-
 #endif
 #ifndef __COMMON_H_IMPL
 #define __COMMON_H_IMPL
