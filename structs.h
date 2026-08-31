@@ -23,8 +23,8 @@ PACKSTRU(IDT, {
 _Static_assert(sizeof(IDT)==8, "idt fucked");
 
 PACKSTRU(SimplePtr, {
-    uint16_t limit;
-    uint32_t base;
+	uint16_t limit;
+	uint32_t base;
 });
 
 _Static_assert(sizeof(SimplePtr)==6, "idtr fucked");

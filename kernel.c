@@ -67,68 +67,65 @@ static uint8_t ps2Read(void) {
 	return inb(0x60);
 }
 
-#define qemuDebugC(c)
+#define NO_DBG 1
+#define DEBUG_PORT 0x3f8 // log to com1 if no debug
+#define debugC(c) outb(DEBUG_PORT, c)
 #if EBUG
-	#undef qemuDebugC
-	#define qemuDebugC(c) outb(0xe9, c)
+	#undef NO_DBG
+	#undef DEBUG_PORT
+	#define DEBUG_PORT 0xe9
 #endif
 
-static void qemuDebugS(char*s) {
-	#if EBUG
-		if (s==NULL) {qemuDebugS("(null)");return;}
-		while (*s) {
-			qemuDebugC(*s);
-			s++;
-		}
-	#endif
+static void debugS(char*s) {
+	if (s==NULL) {debugS("(null)");return;}
+	while (*s) {
+		debugC(*s);
+		s++;
+	}
 }
 
-#define qemuDebugL(s)
-#if EBUG
-	#undef qemuDebugL
-	#define qemuDebugL(s) do {qemuDebugS(s);qemuDebugC(10);} while (false)
-#endif
+#define debugL(s) do {debugS(s);debugC(10);} while (false)
 
-static void __internal__qemuDebugNNewlineless__(uint32_t n, uint8_t shl) {
+static void __internal__debugNNewlineless__(uint32_t n, uint8_t shl) {
 	shl--;
 	while (true) {
 		uint32_t shBy = shl<<2;
 		uint32_t o = ((n>>shBy)&15)+48;
 		if (o>57) o += 39;
-		qemuDebugC(o);
+		debugC(o);
 		if (shl==0) return;
 		shl--;
 	}
 	__builtin_unreachable();
 }
 
-static void qemuDebugN(uint32_t n) {
-	qemuDebugS("0x");
-	__internal__qemuDebugNNewlineless__(n, 8);
-	qemuDebugC(10);
+static void debugN(uint32_t n) {
+	debugS("0x");
+	__internal__debugNNewlineless__(n, 8);
+	debugC(10);
 }
 
-void qemuDebugXXD(void*_, uint32_t len) {
+void debugXXD(void*_, uint32_t len) {
 	uint8_t*buf = _;
 	uint8_t*cnt = buf;
 	uint8_t*end = buf+len;
 	while (cnt<end) {
-		__internal__qemuDebugNNewlineless__((uint32_t)cnt,8);
-		qemuDebugC(58);
+		__internal__debugNNewlineless__((uint32_t)cnt,8);
+		debugC(58);
 		uint8_t tmp1 = 0;
 		while (tmp1<8) {
 			uint8_t tmp2 = 0;
 			while (tmp2<2) {
 				if (cnt<end) {
-					if (tmp2==0) qemuDebugC(32);
-					__internal__qemuDebugNNewlineless__((uint32_t)(*cnt),2);
+					if (tmp2==0) debugC(32);
+					__internal__debugNNewlineless__((uint32_t)(*cnt),2);
 				}
 				tmp2++;
 				cnt++;
 			}
 			tmp1++;
 		}
-		qemuDebugC(10);
+		debugC(10);
 	}
 }
 
@@ -333,14 +330,14 @@ void mousierH(void) {
 	if (mouseFirstByte) {
 		mouseFirstByte = false;
 		if (byte==0xfa) { // nope
-			//qemuDebugL("mouse: had to skip byte 0xfa!");
+			//debugL("mouse: had to skip byte 0xfa!");
 			return;
 		}
 	}
 	uint8_t toFill = mouseState[0]+1;
-	/*qemuDebugS("mouse: got byte 0x");
-	__internal__qemuDebugNNewlineless__(byte,2);
-	qemuDebugC(10);*/
+	/*debugS("mouse: got byte 0x");
+	__internal__debugNNewlineless__(byte,2);
+	debugC(10);*/
 	if ((toFill==1)&&(!(byte&8))) return;
 	mouseState[toFill] = byte;
 	mouseState[0]++;
@@ -402,6 +399,26 @@ __asm__ (
 );
 extern void tH(void);
 
+#if NO_DBG
+	// source: https://wiki.osdev.org/Serial_Ports#Initialization
+	static void initCOM1() {
+		outb(0x3f9, 0x00);
+		outb(0x3fb, 0x80);
+		outb(0x3f8, 0x03);
+		outb(0x3f9, 0x00);
+		outb(0x3fb, 0x03);
+		outb(0x3fa, 0xc7);
+		outb(0x3fc, 0x0b);
+		outb(0x3fc, 0x1e);
+		outb(0x3f8, 0x67);
+		if (inb(0x3f8) != 0x67) {
+			while (true) {}
+		}
+		outb(0x3fc, 0x0f);
+		// outb(0x3f8, 104);
+	}
+#endif
+
 void interruptsSetup(void) {
 	uint16_t irqCnt = 0;
 	while (irqCnt<0xff) {
@@ -447,22 +464,26 @@ void interruptsSetup(void) {
 	outb(0x43, 0x36);
 	outb(0x40, (uint8_t)(div&0xFF));
 	outb(0x40, (uint8_t)((div>>8)&0xFF));
+	#if NO_DBG
+		initCOM1();
+	#endif
 	__asm__ volatile ("sti");
 }
 
 void k(void) {
-	qemuDebugL("gubic kernel starting!");
-	qemuDebugS("ebx: ");
-	qemuDebugN((uint32_t)payload);
+	interruptsSetup();
+	debugL("gubic kernel starting!");
+	debugS("ebx: ");
+	debugN((uint32_t)payload);
 	char*cmdline = searchTag(1,NULL);
-	qemuDebugS("command line: ");
-	qemuDebugL(cmdline);
+	debugS("command line: ");
+	debugL(cmdline);
 	char*bootloader = searchTag(2,NULL);
-	qemuDebugS("bootloader: ");
-	qemuDebugL(bootloader);
+	debugS("bootloader: ");
+	debugL(bootloader);
 	mb2FB = searchTag(8, NULL);
 	while (!((mb2FB->fbHi==0)&&((mb2FB->bpp==32)&&(mb2FB->t==1)))) {}
-	qemuDebugL("32bit addr, 32bit bpp, type 1 fb, can double buffer!");
+	debugL("32bit addr, 32bit bpp, type 1 fb, can double buffer!");
 	fb = mb2FB->fb; // holy framebuffer
 	fbDim.p = (mb2FB->p)/4;
 	fbDim.w = mb2FB->w;
@@ -478,14 +499,14 @@ void k(void) {
 	uint32_t memSz;
 	bool foundMem = false;
 	MBoot2Mem*mem = searchTag(6, &memSz);
-	qemuDebugXXD(mem,memSz);
+	debugXXD(mem,memSz);
 	while (!((mem->entSz==sizeof(MBoot2MemEnt))&&(mem->v==0))) {}
 	MBoot2MemEnt*ptr = (MBoot2MemEnt*)((uint8_t*)(mem)+sizeof(MBoot2Mem));
 	MBoot2MemEnt*end = (MBoot2MemEnt*)((uint8_t*)(mem)+memSz);
 	while (ptr<end) {
 		if (ptr->t==1) {
 			if (ptr->len>=offscreenSz) {
-				qemuDebugL("found it!");
+				debugL("found it!");
 				foundMem = true;
 				break;
 			}
@@ -493,14 +514,13 @@ void k(void) {
 		ptr++;
 	}
 	if (!(foundMem)) {
-		qemuDebugL("cant find memory for offscreen framebuffer!");
+		debugL("cant find memory for offscreen framebuffer!");
 		while (true) {}
 	}
 	offscreen = (P32*)ptr->baseLo;
 	// your programme will resume as usual now.
 	mouse[0] = fbDim.w>>1;
 	mouse[1] = fbDim.h>>1;
-	interruptsSetup();
 	uint32_t dt = 0;
 	uint32_t lastUp = 0;
 	uint32_t now;
@@ -514,8 +534,8 @@ void k(void) {
 			dt = now-lastUp;
 		} while (dt<1);
 		lastUp = now;
-		qemuDebugS("fps: ");
-		qemuDebugN(1000/dt);
+		debugS("fps: ");
+		debugN(1000/dt);
 	}
 	__builtin_unreachable();
 }

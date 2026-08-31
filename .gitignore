@@ -2,3 +2,5 @@
 *.img
 *.bin
 *.x86
+mnt/*
+rd.tar
