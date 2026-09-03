@@ -380,9 +380,17 @@ void kbdH(void) {
 		PRTKEY(v, 1, 0x2f),
 		PRTKEY(b, 1, 0x30),
 		PRTKEY(n, 1, 0x31),
-		PRTKEY(m, 1, 0x32)
+		PRTKEY(m, 1, 0x32),
+		// extended keys...
+		KEY(KEY_CTRL, 2, 0xe0, 0x1d) // right control? more like just control.
 	};
 	uint8_t scancode = inb(0x60);
+	if ((scancode==0xe0)&&(bufSz==0)) {
+		buf[0] = 0xe0;
+		bufSz++;
+		debugL("kbd: got 0xe0!");
+		return; // whatever
+	}
 	bool mask = scancode>>7;
 	buf[bufSz++] = (scancode &= ~0x80); // remove mask
 	uint16_t seqSz = 0;
