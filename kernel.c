@@ -363,6 +363,7 @@ void kbdH(void) {
 		PRTKEY(i, 1, 0x17),
 		PRTKEY(o, 1, 0x18),
 		PRTKEY(p, 1, 0x19),
+		KEY(KEY_CTRL, 1, 0x1d),
 		PRTKEY(a, 1, 0x1e),
 		PRTKEY(s, 1, 0x1f),
 		PRTKEY(d, 1, 0x20),
