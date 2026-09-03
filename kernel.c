@@ -339,6 +339,20 @@ void kbdH(void) {
 	static volatile uint8_t buf[6] = {0};
 	static volatile uint16_t bufSz = 0;
 	static volatile uint16_t codes[] = {
+		PRTKEY(1, 1, 0x02),
+		PRTKEY(2, 1, 0x03),
+		PRTKEY(3, 1, 0x04),
+		PRTKEY(4, 1, 0x05),
+		PRTKEY(5, 1, 0x06),
+		PRTKEY(6, 1, 0x07),
+		PRTKEY(7, 1, 0x08),
+		PRTKEY(8, 1, 0x09),
+		PRTKEY(9, 1, 0x0a),
+		PRTKEY(0, 1, 0x0b),
+		PRTKEY(-, 1, 0x0c),
+		PRTKEY(=, 1, 0x0d),
+		KEY(KEY_BKSP, 1, 0x0e),
+		KEY(9, 1, 0x0f),
 		PRTKEY(q, 1, 0x10),
 		PRTKEY(w, 1, 0x11),
 		PRTKEY(e, 1, 0x12),
@@ -357,7 +371,15 @@ void kbdH(void) {
 		PRTKEY(h, 1, 0x23), // yay!
 		PRTKEY(j, 1, 0x24),
 		PRTKEY(k, 1, 0x25),
-		PRTKEY(l, 1, 0x26)
+		PRTKEY(l, 1, 0x26),
+		KEY(KEY_SHIFT, 1, 0x2a),
+		PRTKEY(z, 1, 0x2c),
+		PRTKEY(x, 1, 0x2d),
+		PRTKEY(c, 1, 0x2e),
+		PRTKEY(v, 1, 0x2f),
+		PRTKEY(b, 1, 0x30),
+		PRTKEY(n, 1, 0x31),
+		PRTKEY(m, 1, 0x32)
 	};
 	uint8_t scancode = inb(0x60);
 	bool mask = scancode>>7;

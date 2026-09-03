@@ -10,8 +10,13 @@ int addPad(uint32_t o);
 #define PRTKEY(l, ...) KEY((STR(l))[0],__VA_ARGS__)
 
 #define KEY_MIN 0x100
-#define KEY_CTRL KEY_MIN
-#define KEY_MAX KEY_CTRL
+#define KEY_CTRL			KEY_MIN
+#define KEY_SHIFT			KEY_MIN+1
+#define KEY_ALT				KEY_MIN+2
+#define KEY_ALTGR			KEY_MIN+3
+#define KEY_BKSP			KEY_MIN+4
+#define KEY_MAX KEY_BKSP
+
 #endif
 #ifndef __COMMON_H_IMPL
 #define __COMMON_H_IMPL
