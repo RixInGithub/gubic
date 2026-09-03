@@ -354,7 +354,7 @@ void kbdH(void) {
 		PRTKEY(d, 1, 0x20),
 		PRTKEY(f, 1, 0x21),
 		PRTKEY(g, 1, 0x22),
-		PRTKEY(h, 1, 0x23),
+		PRTKEY(h, 1, 0x23), // yay!
 		PRTKEY(j, 1, 0x24),
 		PRTKEY(k, 1, 0x25),
 		PRTKEY(l, 1, 0x26)
