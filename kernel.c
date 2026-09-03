@@ -10,9 +10,9 @@ __asm__ (".section .data");
 void*payload = NULL;
 P32*fb;
 MBoot2FBInfo*mb2FB;
-volatile int32_t mouseState[4] = {0};
+volatile int16_t mouseState[4] = {0};
 volatile bool mouseFirstByte = true;
-volatile uint32_t mouse[2] = {0};
+volatile uint16_t mouse[2] = {0};
 P32*offscreen;
 uint32_t memMapSz;
 FBDim fbDim = {0};
@@ -99,9 +99,18 @@ static void __internal__debugNNewlineless__(uint32_t n, uint8_t shl) {
 	__builtin_unreachable();
 }
 
-static void debugN(uint32_t n) {
-	debugS("0x");
-	__internal__debugNNewlineless__(n, 8);
+#define __internal__debugNWithCustomLen__(n,l) do {debugS("0x");__internal__debugNNewlineless__(n, l);debugC(10);} while (false)
+#define debugN(n) __internal__debugNWithCustomLen__(n,8)
+#define debugN16(n) __internal__debugNWithCustomLen__(n,4)
+#define debugN8(n) __internal__debugNWithCustomLen__(n,2)
+
+static void debugBin(uint8_t n) {
+	debugS("0b");
+	uint8_t sh = 0;
+	while (sh<8) {
+		debugC(48+((n>>(7-sh))&1));
+		sh++;
+	}
 	debugC(10);
 }
 
@@ -128,6 +137,8 @@ void debugXXD(void*_, uint32_t len) {
 		debugC(10);
 	}
 }
+
+#define debugBool(b) debugL((b)?"yes":"no")
 
 void*searchTag(uint32_t t, uint32_t*size) {
 	#define HDRSZ (2*sizeof(uint32_t))
@@ -324,7 +335,89 @@ SimplePtr idtr = {sizeof(IDT)*256-1,(uint32_t)&idt};
 	idt[irq].typeAttr = /*BIT(0, 1, 1, 1, 0, 0, 0, 1)*/ 0x8e; \
 } while (false)
 
+void kbdH(void) {
+	static volatile uint8_t buf[6] = {0};
+	static volatile uint16_t bufSz = 0;
+	static volatile uint16_t codes[] = {
+		PRTKEY(q, 1, 0x10),
+		PRTKEY(w, 1, 0x11),
+		PRTKEY(e, 1, 0x12),
+		PRTKEY(r, 1, 0x13),
+		PRTKEY(t, 1, 0x14),
+		PRTKEY(y, 1, 0x15),
+		PRTKEY(u, 1, 0x16),
+		PRTKEY(i, 1, 0x17),
+		PRTKEY(o, 1, 0x18),
+		PRTKEY(p, 1, 0x19),
+		PRTKEY(a, 1, 0x1e),
+		PRTKEY(s, 1, 0x1f),
+		PRTKEY(d, 1, 0x20),
+		PRTKEY(f, 1, 0x21),
+		PRTKEY(g, 1, 0x22),
+		PRTKEY(h, 1, 0x23),
+		PRTKEY(j, 1, 0x24),
+		PRTKEY(k, 1, 0x25),
+		PRTKEY(l, 1, 0x26)
+	};
+	uint8_t scancode = inb(0x60);
+	bool mask = scancode>>7;
+	buf[bufSz++] = (scancode &= ~0x80); // remove mask
+	uint16_t seqSz = 0;
+	uint16_t maxSeq = bufSz;
+	uint16_t buf2Chk;
+	bool toSkip;
+	volatile uint16_t meaning;
+	uint16_t cnt = 0;
+	bool found = false;
+	debugS("kbd: scancode: ");
+	debugN8(scancode);
+	debugS("kbd: mask bit? ");
+	debugBool(mask);
+	// debugXXD(codes,sizeof(codes));
+	while ((cnt<sizeof(codes))&&(!(found))) {
+		do {
+			bool again = seqSz==0;
+			if (again) {
+				toSkip = ((seqSz = codes[cnt])>bufSz);
+				buf2Chk = 0;
+				if (maxSeq<seqSz) maxSeq = seqSz;
+				break;
+			}
+			seqSz--;
+			if (toSkip) break;
+			if (buf[buf2Chk]!=codes[cnt]) {
+				toSkip = true;
+			}
+			if (seqSz==0) {
+				cnt++; // get to meaning
+				meaning = codes[cnt];
+				// now that we're on the meaning char, it will get skipped :)
+				found = (!(toSkip)); // perfect
+			}
+			buf2Chk++;
+		} while (false); // this gives me `break`! how convenient!
+		cnt++;
+	}
+	bufSz *= (!((found)||(maxSeq>=bufSz)));
+	if (!(found)) {
+		debugL("kbd: meaning not found!");
+		return;
+	}
+	debugS("kbd: meaning: ");
+	debugN16(meaning);
+	if (!(meaning&0xff00)) {
+		debugS("kbd: (");
+		debugC(meaning);
+		debugL(")");
+	}
+}
+
 void mousierH(void) {
+	uint8_t status = inb(0x64);
+	if ((status&1)&&(!(status&0x20))) {
+		kbdH();
+		return;
+	}
 	uint32_t byte = inb(0x60);
 	byte &= 0xff;
 	if (mouseFirstByte) {
@@ -342,12 +435,12 @@ void mousierH(void) {
 	mouseState[toFill] = byte;
 	mouseState[0]++;
 	if (toFill==3) {
-		int32_t xMov = mouseState[2];
-		int32_t yMov = mouseState[3];
-		if ((mouseState[1]>>4)&1) xMov |= 0xffffff00;
-		if ((mouseState[1]>>5)&1) yMov |= 0xffffff00;
-		mouse[0] = (uint32_t)clamp((int32_t)(mouse[0])+xMov,0,(int32_t)(fbDim.w-1));
-		mouse[1] = (uint32_t)clamp((int32_t)(mouse[1])-yMov,0,(int32_t)(fbDim.h-1));
+		int16_t xMov = mouseState[2];
+		int16_t yMov = mouseState[3];
+		if ((mouseState[1]>>4)&1) xMov |= 0xff00;
+		if ((mouseState[1]>>5)&1) yMov |= 0xff00;
+		mouse[0] = (uint16_t)clamp((int16_t)(mouse[0])+xMov,0,(int16_t)(fbDim.w-1));
+		mouse[1] = (uint16_t)clamp((int16_t)(mouse[1])-yMov,0,(int16_t)(fbDim.h-1));
 		mouseBtns.left = mouseState[1]&1;
 		mouseBtns.mid = (mouseState[1]>>2)&1;
 		mouseBtns.right = (mouseState[1]>>1)&1;
@@ -358,6 +451,19 @@ void mousierH(void) {
 void timerH(void) {
 	msUp++;
 }
+
+__asm__ (
+	".section .text\n"
+	".global stubH\n"
+	"stubH:\n"
+		"pusha\n"
+		"movb $0x20, %al\n"
+		"outb %al, $0x20\n"
+		"outb %al, $0xa0\n"
+		"popa\n"
+		"iret\n"
+);
+extern void stubH(void);
 
 __asm__ (
 	".section .text\n"
@@ -375,19 +481,6 @@ extern void mouseH(void);
 
 __asm__ (
 	".section .text\n"
-	".global stubH\n"
-	"stubH:\n"
-		"pusha\n"
-		"movb $0x20, %al\n"
-		"outb %al, $0x20\n"
-		"outb %al, $0xa0\n"
-		"popa\n"
-		"iret\n"
-);
-extern void stubH(void);
-
-__asm__ (
-	".section .text\n"
 	".global tH\n"
 	"tH:\n"
 		"pusha\n"
@@ -399,26 +492,6 @@ __asm__ (
 );
 extern void tH(void);
 
-#if NO_DBG
-	// source: https://wiki.osdev.org/Serial_Ports#Initialization
-	static void initCOM1() {
-		outb(0x3f9, 0x00);
-		outb(0x3fb, 0x80);
-		outb(0x3f8, 0x03);
-		outb(0x3f9, 0x00);
-		outb(0x3fb, 0x03);
-		outb(0x3fa, 0xc7);
-		outb(0x3fc, 0x0b);
-		outb(0x3fc, 0x1e);
-		outb(0x3f8, 0x67);
-		if (inb(0x3f8) != 0x67) {
-			while (true) {}
-		}
-		outb(0x3fc, 0x0f);
-		// outb(0x3f8, 104);
-	}
-#endif
-
 void interruptsSetup(void) {
 	uint16_t irqCnt = 0;
 	while (irqCnt<0xff) {
@@ -427,6 +500,7 @@ void interruptsSetup(void) {
 	}
 	SETIRQ(0x20, tH);
 	SETIRQ(0x2c, mouseH);
+	SETIRQ(0x21, mouseH); // one handler for mouse and kbd
 	__asm__ volatile (
 		"lidt %0"
 		:
@@ -457,7 +531,7 @@ void interruptsSetup(void) {
 	ps2Write(0xa8);
 	ps2Write(0xd4);
 	ps2WriteDat(0xf4);
-	outb(0x21, 0xfa);
+	outb(0x21, 0xf8);
 	outb(0xa1, 0xef);
 	// end
 	uint16_t div = 1193; // Math.round(1193182/x)
@@ -465,8 +539,23 @@ void interruptsSetup(void) {
 	outb(0x40, (uint8_t)(div&0xFF));
 	outb(0x40, (uint8_t)((div>>8)&0xFF));
 	#if NO_DBG
-		initCOM1();
+		// source: https://wiki.osdev.org/Serial_Ports#Initialization
+		outb(0x3f9, 0x00);
+		outb(0x3fb, 0x80);
+		outb(0x3f8, 0x03);
+		outb(0x3f9, 0x00);
+		outb(0x3fb, 0x03);
+		outb(0x3fa, 0xc7);
+		outb(0x3fc, 0x0b);
+		outb(0x3fc, 0x1e);
+		outb(0x3f8, 0x67);
+		if (inb(0x3f8) != 0x67) {
+			while (true) {}
+		}
+		outb(0x3fc, 0x0f);
+		// outb(0x3f8, 104);
 	#endif
+	ps2Write(0xae); // enable keyboard i guess?
 	__asm__ volatile ("sti");
 }
 
@@ -514,7 +603,7 @@ void k(void) {
 		ptr++;
 	}
 	if (!(foundMem)) {
-		debugL("cant find memory for offscreen framebuffer!");
+		debugL("can't find memory for offscreen framebuffer!");
 		while (true) {}
 	}
 	offscreen = (P32*)ptr->baseLo;
@@ -534,8 +623,8 @@ void k(void) {
 			dt = now-lastUp;
 		} while (dt<1);
 		lastUp = now;
-		debugS("fps: ");
-		debugN(1000/dt);
+		/*debugS("fps: ");
+		debugN(1000/dt);*/
 	}
 	__builtin_unreachable();
 }
