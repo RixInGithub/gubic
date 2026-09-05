@@ -205,24 +205,18 @@ void clear(uint32_t col) {
 	}
 }
 
-static uint32_t min3(uint32_t a, uint32_t b, uint32_t c) {
-	uint32_t o = a;
+static float min3(float a, float b, float c) {
+ 	float o = a;
 	if (b<o) o=b;
 	if (c<o) o=c;
+	if (0>o) return 0;
 	return o;
 }
 
-static uint32_t max3(uint32_t a, uint32_t b, uint32_t c) {
-	uint32_t o = a;
+static float max3(float a, float b, float c) {
+	float o = a;
 	if (b>o) o=b;
 	if (c>o) o=c;
-	return o;
-}
-
-static float fMin3(float a, float b, float c) {
-	float o = a;
-	if (b<o) o=b;
-	if (c<o) o=c;
 	return o;
 }
 
@@ -243,6 +237,8 @@ uint32_t blend(uint32_t x, uint32_t y, uint32_t col, uint8_t amnt) {
 		int16_t b1 = (rgb>>8)&0xff;
 		b1 += ((((col>>8)&0xff)-b1)*amnt)/16;
 		return ((((uint32_t)r1)&0xff)<<24)|((((uint32_t)g1)&0xff)<<16)|((((uint32_t)b1)&0xff)<<8);
+	#elif NO_AA
+		return col;
 	#else
 		uint8_t bayer[] = {
 			0,	8,	2,	10,
@@ -254,36 +250,38 @@ uint32_t blend(uint32_t x, uint32_t y, uint32_t col, uint8_t amnt) {
 	#endif
 }
 
-#define MIN(a,b) ((a)<(b))?(a):(b)
+static uint32_t min32(uint32_t a, uint32_t b) {
+	return (a<b)?a:b;
+}
 
-void tri(uint32_t col, uint32_t x1, uint32_t y1, uint32_t x2, uint32_t y2, uint32_t x3, uint32_t y3, uint8_t opacity) {
+void tri(uint32_t col, float x1, float y1, float x2, float y2, float x3, float y3, uint8_t opacity) {
 	if (opacity==0) return;
-	uint32_t minX = MIN(min3(x1,x2,x3),fbDim.w);
-	uint32_t maxX = MIN(max3(x1,x2,x3)+1,fbDim.w);
-	uint32_t minY = MIN(min3(y1,y2,y3),fbDim.h);
-	uint32_t maxY = MIN(max3(y1,y2,y3)+1,fbDim.h);
-	int32_t a1 = (int32_t)y1-(int32_t)y2;
-	int32_t b1 = (int32_t)x2-(int32_t)x1;
-	int32_t c1 = ((int32_t)x1*(int32_t)y2)-((int32_t)x2*(int32_t)y1);
-	int32_t a2 = (int32_t)y2-(int32_t)y3;
-	int32_t b2 = (int32_t)x3-(int32_t)x2;
-	int32_t c2 = ((int32_t)x2*(int32_t)y3)-((int32_t)x3*(int32_t)y2);
-	int32_t a3 = (int32_t)y3-(int32_t)y1;
-	int32_t b3 = (int32_t)x1-(int32_t)x3;
-	int32_t c3 = ((int32_t)x3*(int32_t)y1)-((int32_t)x1*(int32_t)y3);
-	int32_t base1 = (a1*(int32_t)(minX))+(b1*(int32_t)(minY))+c1;
-	int32_t base2 = (a2*(int32_t)(minX))+(b2*(int32_t)(minY))+c2;
-	int32_t base3 = (a3*(int32_t)(minX))+(b3*(int32_t)(minY))+c3;
+	uint32_t minX = min32(min3(x1,x2,x3),fbDim.w);
+	uint32_t maxX = min32(max3(x1,x2,x3),fbDim.w);
+	uint32_t minY = min32(min3(y1,y2,y3),fbDim.h);
+	uint32_t maxY = min32(max3(y1,y2,y3),fbDim.h);
+	float a1 = y1-y2;
+	float b1 = x2-x1;
+	float c1 = (x1*y2)-(x2*y1);
+	float a2 = y2-y3;
+	float b2 = x3-x2;
+	float c2 = (x2*y3)-(x3*y2);
+	float a3 = y3-y1;
+	float b3 = x1-x3;
+	float c3 = (x3*y1)-(x1*y3);
+	float base1 = (a1*(float)(minX))+(b1*(float)(minY))+c1;
+	float base2 = (a2*(float)(minX))+(b2*(float)(minY))+c2;
+	float base3 = (a3*(float)(minX))+(b3*(float)(minY))+c3;
 	// int32_t area = base1+((int32_t)a1*(int32_t)x3)+((int32_t)b1*(int32_t)y3);
 	// the godforsaken area
 	uint32_t yCnt = minY;
-	while (yCnt<maxY) {
+	while (yCnt<=maxY) {
 		int32_t e1 = base1;
 		int32_t e2 = base2;
 		int32_t e3 = base3;
 		uint32_t xCnt = minX;
 		bool gotNonTrans = false;
-		while (xCnt<maxX) {
+		while (xCnt<=maxX) {
 			// msaa
 			#define TRUE_SIDER(n,aM,bM) ((4*e##n)+(aM*a##n)+(bM*b##n))
 			#define SIDER(aM,bM) do { \
@@ -297,6 +295,8 @@ void tri(uint32_t col, uint32_t x1, uint32_t y1, uint32_t x2, uint32_t y2, uint3
 			SIDER(3,1);
 			SIDER(3,3);
 			SIDER(1,3);
+			#undef TRUE_SIDER
+			#undef SIDER
 			cov = (cov*opacity)/16;
 			offscreen[(yCnt*fbDim.p)+xCnt] = p32FromRGBA(blend(xCnt,yCnt,col,cov));
 			xCnt++;
@@ -652,7 +652,7 @@ void k(void) {
 	uint32_t now;
 	while (true) {
 		clear(0x22448800);
-		tri(0xff800000, 100, 100, 400, 500, mouseBtns.left?mouse[0]:700, mouseBtns.left?mouse[1]:300, 11);
+		tri(0xff800000, 100, 100, 400.5, 500.5, mouseBtns.left?mouse[0]:700, mouseBtns.left?mouse[1]:300, 2);
 		tri(0xffff0000,mouse[0],mouse[1],mouse[0]+16,mouse[1],mouse[0],mouse[1]+16, 16);
 		copyOffscreen();
 		do {
