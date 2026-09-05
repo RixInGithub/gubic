@@ -230,43 +230,52 @@ static int32_t clamp(int32_t n, int32_t min, int32_t max) {
 	return (min>n)?min:((max<n)?max:n);
 }
 
-uint32_t blend(uint32_t rgb, uint32_t col, uint8_t amnt) {
-	if (amnt >= 4) return col;
-	if (amnt == 0) return rgb;
-	rgb >>= 8;
-	col >>= 8;
-	uint8_t r1 = (rgb>>16)&0xff;
-	r1 += ((((col>>16)&0xff)-r1)*amnt)>>2;
-	uint8_t g1 = (rgb>>8)&0xff;
-	g1 += ((((col>>8)&0xff)-g1)*amnt)>>2;
-	uint8_t b1 = rgb&0xff;
-	b1 += (((col&0xff)-b1)*amnt)/4;
-	return ((((uint32_t)r1)&0xff)<<24)|((((uint32_t)g1)&0xff)<<16)|((((uint32_t)b1)&0xff)<<8);
+uint32_t blend(uint32_t x, uint32_t y, uint32_t col, uint8_t amnt) {
+	// range: 1-16
+	if (amnt >= 16) return col;
+	uint32_t rgb = rgbaFromP32(offscreen[(y*fbDim.p)+x]); // osdev wiki says: "Reading from the video memory is slooow! Use double buffering instead." [sic]
+	if (amnt==0) return rgb;
+	#if NO_BAYER
+		int16_t r1 = (rgb>>24)&0xff;
+		r1 += ((((col>>24)&0xff)-r1)*amnt)/16;
+		int16_t g1 = (rgb>>16)&0xff;
+		g1 += ((((col>>16)&0xff)-g1)*amnt)/16;
+		int16_t b1 = (rgb>>8)&0xff;
+		b1 += ((((col>>8)&0xff)-b1)*amnt)/16;
+		return ((((uint32_t)r1)&0xff)<<24)|((((uint32_t)g1)&0xff)<<16)|((((uint32_t)b1)&0xff)<<8);
+	#else
+		uint8_t bayer[] = {
+			0,	8,	2,	10,
+			12,	4,	14,	6,
+			3,	11,	1,	9,
+			15,	7,	13,	5
+		};
+		return (amnt>bayer[((y&3)<<2)|(x&3)])?col:rgb;
+	#endif
 }
 
 #define MIN(a,b) ((a)<(b))?(a):(b)
-#define FASTERSIDE(n) (a##n*(int32_t)(minX))+(b##n*(int32_t)(minY))+c##n
 
-void tri(uint32_t col, uint32_t x1, uint32_t y1, uint32_t x2, uint32_t y2, uint32_t x3, uint32_t y3) {
-	P32 p32Col = p32FromRGBA(col);
-	uint32_t p = fbDim.p;
-	uint32_t minX = MIN(min3(x1,x2,x3),p);
-	uint32_t maxX = MIN(max3(x1,x2,x3),p);
+void tri(uint32_t col, uint32_t x1, uint32_t y1, uint32_t x2, uint32_t y2, uint32_t x3, uint32_t y3, uint8_t opacity) {
+	if (opacity==0) return;
+	uint32_t minX = MIN(min3(x1,x2,x3),fbDim.w);
+	uint32_t maxX = MIN(max3(x1,x2,x3)+1,fbDim.w);
 	uint32_t minY = MIN(min3(y1,y2,y3),fbDim.h);
-	uint32_t maxY = MIN(max3(y1,y2,y3),fbDim.h);
-	int32_t a1 = y1-y2;
-	int32_t b1 = x2-x1;
-	int32_t c1 = (x1*y2)-(x2*y1);
-	int32_t a2 = y2-y3;
-	int32_t b2 = x3-x2;
-	int32_t c2 = (x2*y3)-(x3*y2);
-	int32_t a3 = y3-y1;
-	int32_t b3 = x1-x3;
-	int32_t c3 = (x3*y1)-(x1*y3);
-	int32_t base1 = FASTERSIDE(1);
-	int32_t base2 = FASTERSIDE(2);
-	int32_t base3 = FASTERSIDE(3);
-	int32_t area = base1+a1*x3+b1*y3;
+	uint32_t maxY = MIN(max3(y1,y2,y3)+1,fbDim.h);
+	int32_t a1 = (int32_t)y1-(int32_t)y2;
+	int32_t b1 = (int32_t)x2-(int32_t)x1;
+	int32_t c1 = ((int32_t)x1*(int32_t)y2)-((int32_t)x2*(int32_t)y1);
+	int32_t a2 = (int32_t)y2-(int32_t)y3;
+	int32_t b2 = (int32_t)x3-(int32_t)x2;
+	int32_t c2 = ((int32_t)x2*(int32_t)y3)-((int32_t)x3*(int32_t)y2);
+	int32_t a3 = (int32_t)y3-(int32_t)y1;
+	int32_t b3 = (int32_t)x1-(int32_t)x3;
+	int32_t c3 = ((int32_t)x3*(int32_t)y1)-((int32_t)x1*(int32_t)y3);
+	int32_t base1 = (a1*(int32_t)(minX))+(b1*(int32_t)(minY))+c1;
+	int32_t base2 = (a2*(int32_t)(minX))+(b2*(int32_t)(minY))+c2;
+	int32_t base3 = (a3*(int32_t)(minX))+(b3*(int32_t)(minY))+c3;
+	// int32_t area = base1+((int32_t)a1*(int32_t)x3)+((int32_t)b1*(int32_t)y3);
+	// the godforsaken area
 	uint32_t yCnt = minY;
 	while (yCnt<maxY) {
 		int32_t e1 = base1;
@@ -274,31 +283,22 @@ void tri(uint32_t col, uint32_t x1, uint32_t y1, uint32_t x2, uint32_t y2, uint3
 		int32_t e3 = base3;
 		uint32_t xCnt = minX;
 		bool gotNonTrans = false;
-		bool stop = false;
 		while (xCnt<maxX) {
 			// msaa
-			#define TRUE_SIDER(n,aM,bM) do { \
-				if ((((4*e##n)+(aM*a##n)+(bM*b##n))>0)==(area>0)) aa##n++; \
+			#define TRUE_SIDER(n,aM,bM) ((4*e##n)+(aM*a##n)+(bM*b##n))
+			#define SIDER(aM,bM) do { \
+				int32_t s1 = TRUE_SIDER(1,aM,bM); \
+				int32_t s2 = TRUE_SIDER(2,aM,bM); \
+				int32_t s3 = TRUE_SIDER(3,aM,bM); \
+				if (((s1>=0)&&((s2>=0)&&(s3>=0)))||((s1<0)&&((s2<0)&&(s3<0)))) cov+=4; \
 			} while (false)
-			#define SIDER(n) TRUE_SIDER(n, 1, 1);TRUE_SIDER(n, 3, 1);TRUE_SIDER(n, 3, 3);TRUE_SIDER(n, 1, 3)
-			uint8_t aa1 = 0;
-			uint8_t aa2 = 0;
-			uint8_t aa3 = 0;
-			SIDER(1);
-			SIDER(2);
-			SIDER(3);
-			bool needBlend = true;
-			P32 abcd;
-			switch (aa1+aa2+aa3) {
-				case 0: break;
-				case 12:
-					needBlend = false;
-					abcd = p32Col;
-				default:
-					if (needBlend) abcd = p32FromRGBA(blend(rgbaFromP32(offscreen[(yCnt*fbDim.p)+xCnt]),col,min3(aa1,aa2,aa3))); // osdev wiki says: "Reading from the video memory is slooow! Use double buffering instead." [sic]
-					offscreen[(yCnt*p)+xCnt] = abcd;
-					break;
-			}
+			uint32_t cov = 0; // range: 1-16 (0 when no opacity)
+			SIDER(1,1);
+			SIDER(3,1);
+			SIDER(3,3);
+			SIDER(1,3);
+			cov = (cov*opacity)/16;
+			offscreen[(yCnt*fbDim.p)+xCnt] = p32FromRGBA(blend(xCnt,yCnt,col,cov));
 			xCnt++;
 			e1 += a1;
 			e2 += a2;
@@ -434,7 +434,8 @@ void kbdH(void) {
 		} while (false); // this gives me `break`! how convenient!
 		cnt++;
 	}
-	bufSz *= (!((found)||(maxSeq>=bufSz)));
+	bufSz *= (!((found)||((buf[0]!=0xe0)||(maxSeq>=bufSz))));
+	if (bufSz==0) debugL("kbd: sequenced buffer cleared");
 	if (!(found)) {
 		debugL("kbd: meaning not found!");
 		return;
@@ -651,8 +652,8 @@ void k(void) {
 	uint32_t now;
 	while (true) {
 		clear(0x22448800);
-		tri(0xff800000, 100, 100, 400, 500, mouseBtns.left?mouse[0]:700, mouseBtns.left?mouse[1]:300);
-		tri(0xffff0000,mouse[0],mouse[1],mouse[0]+16,mouse[1],mouse[0],mouse[1]+16);
+		tri(0xff800000, 100, 100, 400, 500, mouseBtns.left?mouse[0]:700, mouseBtns.left?mouse[1]:300, 11);
+		tri(0xffff0000,mouse[0],mouse[1],mouse[0]+16,mouse[1],mouse[0],mouse[1]+16, 16);
 		copyOffscreen();
 		do {
 			now = msUp;
