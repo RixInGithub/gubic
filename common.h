@@ -15,7 +15,11 @@ int addPad(uint32_t o);
 #define KEY_ALT				KEY_MIN+2
 #define KEY_ALTGR			KEY_MIN+3
 #define KEY_BKSP			KEY_MIN+4
-#define KEY_MAX KEY_BKSP
+#define KEY_L				KEY_MIN+5
+#define KEY_R				KEY_MIN+6
+#define KEY_U				KEY_MIN+7
+#define KEY_D				KEY_MIN+8
+#define KEY_MAX KEY_D
 
 #endif
 #ifndef __COMMON_H_IMPL

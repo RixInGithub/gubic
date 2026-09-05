@@ -339,6 +339,7 @@ void kbdH(void) {
 	static volatile uint8_t buf[6] = {0};
 	static volatile uint16_t bufSz = 0;
 	static volatile uint16_t codes[] = {
+		// i test these by hand in qemu, should work mostly everywhere.
 		PRTKEY(1, 1, 0x02),
 		PRTKEY(2, 1, 0x03),
 		PRTKEY(3, 1, 0x04),
@@ -382,7 +383,11 @@ void kbdH(void) {
 		PRTKEY(n, 1, 0x31),
 		PRTKEY(m, 1, 0x32),
 		// extended keys...
-		KEY(KEY_CTRL, 2, 0xe0, 0x1d) // right control? more like just control.
+		KEY(KEY_CTRL, 2, 0xe0, 0x1d), // right control? more like just control.
+		KEY(KEY_L, 2, 0xe0, 0x4b),
+		KEY(KEY_R, 2, 0xe0, 0x4d),
+		KEY(KEY_U, 2, 0xe0, 0x48),
+		KEY(KEY_D, 2, 0xe0, 0x50)
 	};
 	uint8_t scancode = inb(0x60);
 	if ((scancode==0xe0)&&(bufSz==0)) {
