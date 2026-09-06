@@ -40,7 +40,7 @@ printf "label: dos\nstart=$start, type=07, bootable\n" | sfdisk "$name".img > /d
 echo "disk creation okay"
 rm -f mboot.bin
 gcc genMultiboot.c -o genMultiboot.x86_64 -O9
-./genMultiboot.x86_64 mboot.bin 2,1,8192,8192,65536,69632 3,1,8704 1,1,1,2,8,6 5,1,800,600,32 4,1,0
+./genMultiboot.x86_64 mboot.bin 2,0,8192,8192,65536,69632 3,0,8704 1,0,1,2,8,6 5,0,800,600,32 4,0,0
 gcc -m32 -ffreestanding -no-pie -fno-pie -fno-pic -nostdlib -Wl,-Tkernel.ld -Wl,--build-id=none kernel.c -o kernel.x86 -Oz -static -fdata-sections -ffunction-sections $kflags $@
 rm -f genMultiboot.x86_64 mboot.bin
 grub-file --is-x86-multiboot2 kernel.x86 || noGrub $?
@@ -61,5 +61,5 @@ if [ "$RUN" = 1 ]; then
 	test "$GDB" = 0 || qflags="-S -s"
 	test "$DEBUG" = 0 || qflags="${qflags:+$qflags }-debugcon stdio"
 	test "$ANTICRASH" = 0 || anticrashExtra="-d int -no-reboot" # kvm for some reason makes the anticrash logs not show, so i disable kvm to enable the anticrash.
-	qemu-system-x86_64 -drive format=raw,file="$name".img $qflags $anticrashExtra
+	qemu-system-x86_64 -drive format=raw,file="$name".img -netdev user,id=mynet0 -device ne2k_pci,netdev=mynet0 $qflags $anticrashExtra
 fi

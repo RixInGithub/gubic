@@ -10,9 +10,11 @@ __asm__ (".section .data");
 void*payload = NULL;
 P32*fb;
 MBoot2FBInfo*mb2FB;
-volatile int16_t mouseState[4] = {0};
+volatile int16_t mouseState[5] = {0};
 volatile bool mouseFirstByte = true;
+volatile uint8_t likelyFirstByte;
 volatile uint16_t mouse[2] = {0};
+volatile uint8_t triO = 16;
 P32*offscreen;
 uint32_t memMapSz;
 FBDim fbDim = {0};
@@ -459,10 +461,7 @@ void mousierH(void) {
 	byte &= 0xff;
 	if (mouseFirstByte) {
 		mouseFirstByte = false;
-		if (byte==0xfa) { // nope
-			//debugL("mouse: had to skip byte 0xfa!");
-			return;
-		}
+		if (byte==likelyFirstByte) return; // for some reason the thing to be last read from ps2Read also gets in here
 	}
 	uint8_t toFill = mouseState[0]+1;
 	/*debugS("mouse: got byte 0x");
@@ -471,7 +470,7 @@ void mousierH(void) {
 	if ((toFill==1)&&(!(byte&8))) return;
 	mouseState[toFill] = byte;
 	mouseState[0]++;
-	if (toFill==3) {
+	if (toFill==4) {
 		int16_t xMov = mouseState[2];
 		int16_t yMov = mouseState[3];
 		if ((mouseState[1]>>4)&1) xMov |= 0xff00;
@@ -481,6 +480,23 @@ void mousierH(void) {
 		mouseBtns.left = mouseState[1]&1;
 		mouseBtns.mid = (mouseState[1]>>2)&1;
 		mouseBtns.right = (mouseState[1]>>1)&1;
+		if (mouseState[4]!=0) {
+			int8_t scroll = (int8_t)mouseState[4];
+			bool neg = scroll<0;
+			if (neg) scroll = 0-scroll;
+			switch ((uint8_t)neg) { // i think clang hates booleans in switch cases, so i'm doing this devious hack to get around that.
+				case 0:
+					if (triO>scroll) triO -= scroll;
+					triO *= (triO>scroll);
+					break;
+				default:
+					triO += scroll;
+					if (triO>16) triO=16;
+					break;
+			}
+			debugS("mouse: tri opacity: ");
+			debugN8(triO);
+		}
 		mouseState[0] = 0;
 	}
 }
@@ -566,10 +582,31 @@ void interruptsSetup(void) {
 	ps2Write(0x60);
 	ps2WriteDat(status);
 	ps2Write(0xa8);
-	ps2Write(0xd4);
-	ps2WriteDat(0xf4);
+	#define NEEDFA(a) do { \
+		ps2Write(0xd4); \
+		ps2WriteDat(a); \
+		if (ps2Read()!=0xfa) { \
+			while (true) {} \
+		} \
+	} while (false)
+	NEEDFA(0xf4);
 	outb(0x21, 0xf8);
 	outb(0xa1, 0xef);
+	// end
+	// enable z
+	NEEDFA(0xf3);
+	NEEDFA(0xc8);
+	NEEDFA(0xf3);
+	NEEDFA(0x64);
+	NEEDFA(0xf3);
+	NEEDFA(0x50);
+	NEEDFA(0xf2);
+	likelyFirstByte = 0x03;
+	if (ps2Read()!=likelyFirstByte) {
+		while (true) {}
+	}
+	debugL("kay");
+	#undef NEEDFA
 	// end
 	uint16_t div = 1193; // Math.round(1193182/x)
 	outb(0x43, 0x36);
@@ -585,12 +622,12 @@ void interruptsSetup(void) {
 		outb(0x3fa, 0xc7);
 		outb(0x3fc, 0x0b);
 		outb(0x3fc, 0x1e);
-		outb(0x3f8, 0x67);
-		if (inb(0x3f8) != 0x67) {
+		outb(0x3f8, 67); // ó7
+		if (inb(0x3f8) != 67) { // ó7
 			while (true) {}
 		}
 		outb(0x3fc, 0x0f);
-		// outb(0x3f8, 104);
+		debugL("com1 logging starts here...");
 	#endif
 	ps2Write(0xae); // enable keyboard i guess?
 	__asm__ volatile ("sti");
@@ -652,7 +689,7 @@ void k(void) {
 	uint32_t now;
 	while (true) {
 		clear(0x22448800);
-		tri(0xff800000, 100, 100, 400.5, 500.5, mouseBtns.left?mouse[0]:700, mouseBtns.left?mouse[1]:300, 2);
+		tri(0xff800000, 100, 100, 400.5, 500.5, mouseBtns.left?mouse[0]:700, mouseBtns.left?mouse[1]:300, triO);
 		tri(0xffff0000,mouse[0],mouse[1],mouse[0]+16,mouse[1],mouse[0],mouse[1]+16, 16);
 		copyOffscreen();
 		do {
