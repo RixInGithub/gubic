@@ -605,7 +605,6 @@ void interruptsSetup(void) {
 	if (ps2Read()!=likelyFirstByte) {
 		while (true) {}
 	}
-	debugL("kay");
 	#undef NEEDFA
 	// end
 	uint16_t div = 1193; // Math.round(1193182/x)
@@ -669,7 +668,6 @@ void k(void) {
 	while (ptr<end) {
 		if (ptr->t==1) {
 			if (ptr->len>=offscreenSz) {
-				debugL("found it!");
 				foundMem = true;
 				break;
 			}

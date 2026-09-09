@@ -56,27 +56,17 @@ RUN=1 ./build.sh
 ### ...for running
 
  1. normal hardware (emulators should work best)
+ 2. gdb (if `GDB=1` (or `DEBUG=1` and `GDB` unspecified))
 
-### ...for debugging...
+|flag|meaning|
+|:-:|-|
+|`RUN`|pretty straightforward. if `1`, executes a simple qemu command (depending on your other args). this will be `1` when `DEBUG=1` and unspecified.|
+|`DEBUG`|if `1`, enables `GDB` and `RUN` unless specified otherwise. enables qemu debugcon piping to stdout.|
+|`GDB`|adds `-S -s` to qemu flags.|
+|`ANTICRASH`|adds a few anti crash flags to the qemu command. disables kvm.|
+|`VNC`|tells qemu to display gubic in a vnc server at port `5900` instead of opening a graphical window.|
 
- 1. qemu
- 2. gdb (or a gdb compatible debugger) (unless you set `GDB=0`)
-
-the `RUN` flag's default value is `1` if `DEBUG` is `1`
-
-#### ...with gdb
-
-```sh
-DEBUG=1 ./build.sh
-```
-
-#### ...without gdb
-
-```sh
-DEBUG=1 GDB=0 ./build.sh
-```
-
-qemu debugcon logs will still be visible, however, you will not be able to intercept the program with a gdb-compatible debugger (`lldb`, ...)
+to add extra flags to kernel compilation, feed some argv to the build script.
 
 ## huge thanks to...
 

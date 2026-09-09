@@ -32,6 +32,7 @@ DEBUG="${DEBUG:-0}"
 RUN="${RUN:-$DEBUG}"
 GDB="${GDB:-$DEBUG}"
 ANTICRASH="${ANTICRASH:-0}"
+VNC="${VNC:-0}"
 kflags=
 test "$DEBUG" = 0 || kflags="-DEBUG"
 rm -f "$name".img
@@ -55,11 +56,17 @@ sudo umount "$mnt" || true
 rm -rf "$mnt" rd.tar || true
 test $okay = y || exit 1
 if [ "$RUN" = 1 ]; then
-	echo "running gubic$(test "$DEBUG" = 0 || printf " with debug")..."
 	anticrashExtra="-enable-kvm -m 512"
 	qflags=
+	qdis=sdl
 	test "$GDB" = 0 || qflags="-S -s"
 	test "$DEBUG" = 0 || qflags="${qflags:+$qflags }-debugcon stdio"
+	if ! [ "$VNC" = 0 ]; then
+		qdis=none
+		qflags="${qflags:+$qflags }-vnc :0"
+	fi
 	test "$ANTICRASH" = 0 || anticrashExtra="-d int -no-reboot" # kvm for some reason makes the anticrash logs not show, so i disable kvm to enable the anticrash.
-	qemu-system-x86_64 -drive format=raw,file="$name".img -netdev user,id=mynet0 -device ne2k_pci,netdev=mynet0 $qflags $anticrashExtra
+	QFLAGS="${QFLAGS:-}"
+	set -x
+	qemu-system-x86_64 -drive format=raw,file="$name".img -netdev user,id=mynet0 -device ne2k_pci,netdev=mynet0 -display $qdis $qflags $anticrashExtra $QFLAGS
 fi
