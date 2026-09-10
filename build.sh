@@ -58,7 +58,7 @@ test $okay = y || exit 1
 if [ "$RUN" = 1 ]; then
 	anticrashExtra="-enable-kvm -m 512"
 	qflags=
-	qdis=sdl
+	qdis=gtk
 	test "$GDB" = 0 || qflags="-S -s"
 	test "$DEBUG" = 0 || qflags="${qflags:+$qflags }-debugcon stdio"
 	if ! [ "$VNC" = 0 ]; then
