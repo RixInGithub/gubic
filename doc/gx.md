@@ -10,7 +10,7 @@
 
 the endianness of the gubic executable format is little endian.
 
-a gubic executable is loaded at offset 0x2000 for tag № 1's contents, and the code is loaded at `0x2000` + length of data rounded to nearest multiple of 0x100. an executable can call `gubWhereAmI()` to get the code load offset from `0x2000` as a `uint32_t`.
+a gubic executable is loaded at offset 0x8000 for tag № 1's contents, and the code is loaded at `0x8000` + length of data rounded to nearest multiple of 0x100. an executable can call `gubWhereAmI()` to get the code load offset from `0x8000` as a `uint32_t`.
 
 ## the header
 
