@@ -1,6 +1,6 @@
 #include <stdbool.h>
 #include <stddef.h>
-#include "common.h"
+#include "gubcom.h"
 __asm__ (
 	".section .multiboot, \"a\"\n"
 	".incbin \"mboot.bin\""

@@ -2,5 +2,7 @@
 *.img
 *.bin
 *.x86
+*.gx
 mnt/*
 rd.tar
+*.trueGx.*

@@ -70,6 +70,6 @@ to add extra flags to kernel compilation, feed some argv to the build script.
 
 ## huge thanks to...
 
- 1. the [catk](https://github.com/Rodmatronic/CatK/) maintainers, who showed me examples of grub configuration and installation, qemu debugcon, and so much more!
+ 1. the [catk](https://github.com/Rodmatronic/CatK/) maintainers, who demonstrate examples of grub configuration and installation, qemu debugcon, and so much more!
 
 note: ***i do NOT vibecode.***

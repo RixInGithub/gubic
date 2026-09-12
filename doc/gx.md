@@ -34,7 +34,7 @@ no padding should be placed after tags. the whole file is packed.
 
 |size, b|description|
 |:-:|:-|
-|1|if `00`, no more tags should be read. if `01`, the tag can be read. other values are reserved.|
+|1|if `00`, no more data should be read after this byte. if `01`, the tag can be read. other values are reserved.|
 |1|tag type. see below for available tag types. other values are reserved.|
 |4|tag size.|
 
@@ -44,6 +44,8 @@ only the first instance of all of these tags will be parsed unless explicitly wr
 
 #### № 1
 
+multiple instances of this tag can be present at a time. the data from every instance will be concatenated in the order of which found in.
+
 |size, b|description|
 |:-:|:-|
 |4|minimum allocated memory size.|
@@ -52,7 +54,7 @@ only the first instance of all of these tags will be parsed unless explicitly wr
 
 #### № 2
 
-this tag is the export byte, it shows where to call an exported function. globals cannot be exported, make a function that returns the global instead.
+this tag is the export tag, it shows where to call an exported function. globals cannot be exported, make a function that returns the global instead.
 
 |size, b|description|
 |:-:|:-|
@@ -61,11 +63,10 @@ this tag is the export byte, it shows where to call an exported function. global
 
 #### № 3
 
-this tag is the code byte which will loaded and then `jmp`ed to. the static data and code offset is achieved
+this tag is the code byte which will loaded and then `jmp`ed to.
 
 |size, b|description|
 |:-:|:-|
-|4|size of code.|
 |variable|code|
 
 #### № 4

@@ -3,11 +3,11 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include "common.h"
+#include "gubcom.h"
 #define die(s, ...) do {fprintf(stderr, "%s: " s "\n", prog, ##__VA_ARGS__);return 1;} while (false)
 
 PACKSTRU(MBoot2Hdr, {
-	uint32_t magic; 
+	uint32_t magic;
 	uint32_t always0;
 	uint32_t len; // dynamic
 	uint32_t checksum; // dynamic

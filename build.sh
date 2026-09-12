@@ -42,7 +42,7 @@ echo "disk creation okay"
 rm -f mboot.bin
 gcc genMultiboot.c -o genMultiboot.x86_64 -O9
 ./genMultiboot.x86_64 mboot.bin 2,0,8192,8192,65536,69632 3,0,8704 1,0,1,2,8,6 5,0,800,600,32 4,0,0
-gcc -m32 -ffreestanding -no-pie -fno-pie -fno-pic -nostdlib -Wl,-Tkernel.ld,--build-id=none kernel.c -o kernel.x86 -Oz -static -fdata-sections -ffunction-sections $kflags $@
+gcc -m32 -mabi=sysv -ffreestanding -no-pie -fno-pie -fno-pic -nostdlib -Wl,-Tkernel.ld,--build-id=none kernel.c -o kernel.x86 -Oz -static -fdata-sections -ffunction-sections $kflags $@
 rm -f genMultiboot.x86_64 mboot.bin
 grub-file --is-x86-multiboot2 kernel.x86 || noGrub $?
 echo "kernel + multiboot2 header gen okay"

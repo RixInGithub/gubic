@@ -1,16 +1,19 @@
+OUTPUT_FORMAT(elf32-i386);
+
 SECTIONS {
 	. = 0x8000;
-	.rodata : {
-		*(.rodata*)
+	.data ALIGN(1) : SUBALIGN(0) { # never align memory!
+		KEEP(*(.data*))
 	}
-	.data : {
-		*(.data*)
+	.rodata ALIGN(1) : SUBALIGN(0) {
+		KEEP(*(.rodata*))
 	}
-	.bss : {
-		*(.bss*)
+	.bss ALIGN(1) : SUBALIGN(0) {
+		KEEP(*(.bss*))
 	}
-	# TODO: more compliant to doc
-	.text : {
-		*(.text*)
+	. = ALIGN(0x100); # align it!
+	.text ALIGN(1) : SUBALIGN(0) { # don't align in here too just in case...
+		KEEP(*(.__gubic__start))
+		KEEP(*(.text*))
 	}
 }
