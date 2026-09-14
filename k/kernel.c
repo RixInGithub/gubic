@@ -1,13 +1,13 @@
+#include "kcommon.h"
+#include "alloc.h"
 #include <stdbool.h>
 #include <stddef.h>
-#include "gubcom.h"
 __asm__ (
 	".section .multiboot, \"a\"\n"
 	".incbin \"mboot.bin\""
 );
 
 __asm__ (".section .data");
-void*payload = NULL;
 P32*fb;
 MBoot2FBInfo*mb2FB;
 volatile int16_t mouseState[5] = {0};
@@ -21,147 +21,15 @@ FBDim fbDim = {0};
 volatile uint32_t msUp = 0;
 volatile MouseBtns mouseBtns;
 
-__asm__ (
-	".section .text\n"
-	"movl %ebx, payload\n"
-	"cli\n"
-	"cmpl $0x36d76289, %eax\n"
-	"je k\n"
-	"jmp ."
-);
-
-static void outb(uint16_t port, uint8_t data) {
-	// source, destination
+__attribute__((naked, section(".startup"))) void __startup(void) {
 	__asm__ volatile (
-		"outb %b1, %w0"
-		:
-		: "d"(port), "a"(data)
+		"movl %ebx, payload\n"
+		"cli\n"
+		"cmpl $0x36d76289, %eax\n"
+		"je k\n"
+		"jmp ."
 	);
-}
-
-static uint8_t inb(uint16_t port) {
-	uint8_t data;
-	__asm__ volatile (
-		"inb %w1, %b0"
-		: "=a"(data)
-		: "d"(port)
-	);
-	return data;
-}
-
-static void outbNWait(uint16_t port, uint8_t data) {
-	outb(port,data);
-	outb(0,0x80);
-}
-
-static void ps2Write(uint8_t cmd) {
-	while (inb(0x64)&2) {}
-	outb(0x64, cmd);
-}
-
-static void ps2WriteDat(uint8_t dat) {
-	while (inb(0x64)&2) {}
-	outb(0x60, dat);
-}
-
-static uint8_t ps2Read(void) {
-	while (!(inb(0x64)&1)) {}
-	return inb(0x60);
-}
-
-#define NO_DBG 1
-#define DEBUG_PORT 0x3f8 // log to com1 if no debug
-#define debugC(c) outb(DEBUG_PORT, c)
-#if EBUG
-	#undef NO_DBG
-	#undef DEBUG_PORT
-	#define DEBUG_PORT 0xe9
-#endif
-
-static void debugS(char*s) {
-	if (s==NULL) {debugS("(null)");return;}
-	while (*s) {
-		debugC(*s);
-		s++;
-	}
-}
-
-#define debugL(s) do {debugS(s);debugC(10);} while (false)
-
-static void __internal__debugNNewlineless__(uint32_t n, uint8_t shl) {
-	shl--;
-	while (true) {
-		uint32_t shBy = shl<<2;
-		uint32_t o = ((n>>shBy)&15)+48;
-		if (o>57) o += 39;
-		debugC(o);
-		if (shl==0) return;
-		shl--;
-	}
 	__builtin_unreachable();
-}
-
-#define __internal__debugNWithCustomLen__(n,l) do {debugS("0x");__internal__debugNNewlineless__(n, l);debugC(10);} while (false)
-#define debugN(n) __internal__debugNWithCustomLen__(n,8)
-#define debugN16(n) __internal__debugNWithCustomLen__(n,4)
-#define debugN8(n) __internal__debugNWithCustomLen__(n,2)
-
-static void debugBin(uint8_t n) {
-	debugS("0b");
-	uint8_t sh = 0;
-	while (sh<8) {
-		debugC(48+((n>>(7-sh))&1));
-		sh++;
-	}
-	debugC(10);
-}
-
-void debugXXD(void*_, uint32_t len) {
-	uint8_t*buf = _;
-	uint8_t*cnt = buf;
-	uint8_t*end = buf+len;
-	while (cnt<end) {
-		__internal__debugNNewlineless__((uint32_t)cnt,8);
-		debugC(58);
-		uint8_t tmp1 = 0;
-		while (tmp1<8) {
-			uint8_t tmp2 = 0;
-			while (tmp2<2) {
-				if (cnt<end) {
-					if (tmp2==0) debugC(32);
-					__internal__debugNNewlineless__((uint32_t)(*cnt),2);
-				}
-				tmp2++;
-				cnt++;
-			}
-			tmp1++;
-		}
-		debugC(10);
-	}
-}
-
-#define debugBool(b) debugL((b)?"yes":"no")
-
-void*searchTag(uint32_t t, uint32_t*size) {
-	#define HDRSZ (2*sizeof(uint32_t))
-	char*src = payload+HDRSZ;
-	uint32_t foundT = -1;
-	uint32_t add = 0;
-	while (foundT!=0) {
-		src += add;
-		foundT = *((uint32_t*)src);
-		if (foundT==t) {
-			if (size!=NULL) {
-				uint32_t*where = (uint32_t*)src;
-				where++; // skip over type
-				*size = (*where)-HDRSZ;
-			}
-			return src+HDRSZ;
-		}
-		add = addPad(*(((uint32_t*)src)+1));
-	};
-	return NULL;
-	#undef HDRSZ
 }
 
 P32 p32FromRGBA(uint32_t col) {
@@ -657,28 +525,14 @@ void k(void) {
 	fbDim.bPos = mb2FB->bPos;
 	fbDim.bSz = mb2FB->bSz;
 	// interruption from standard programme: memory map finding! yay!
-	uint32_t offscreenSz = fbDim.p*fbDim.h*4;
-	uint32_t memSz;
+	//uint32_t offscreenSz = fbDim.p*fbDim.h*4;
+	debugBool(setupAlloc());
 	bool foundMem = false;
-	MBoot2Mem*mem = searchTag(6, &memSz);
-	debugXXD(mem,memSz);
-	while (!((mem->entSz==sizeof(MBoot2MemEnt))&&(mem->v==0))) {}
-	MBoot2MemEnt*ptr = (MBoot2MemEnt*)((uint8_t*)(mem)+sizeof(MBoot2Mem));
-	MBoot2MemEnt*end = (MBoot2MemEnt*)((uint8_t*)(mem)+memSz);
-	while (ptr<end) {
-		if (ptr->t==1) {
-			if (ptr->len>=offscreenSz) {
-				foundMem = true;
-				break;
-			}
-		}
-		ptr++;
-	}
 	if (!(foundMem)) {
 		debugL("can't find memory for offscreen framebuffer!");
 		while (true) {}
 	}
-	offscreen = (P32*)ptr->baseLo;
+	//offscreen = (P32*)ptr->baseLo;
 	// your programme will resume as usual now.
 	mouse[0] = fbDim.w>>1;
 	mouse[1] = fbDim.h>>1;

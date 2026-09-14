@@ -49,7 +49,7 @@ multiple instances of this tag can be present at a time. the data from every ins
 |size, b|description|
 |:-:|:-|
 |4|minimum allocated memory size.|
-|1|if `01`, the memory will follow this byte. if `02`, every byte will have an undefined value. if `00`, every byte will be guaranteed to be filled with zeroes.|
+|1|if `01`, the memory will follow this byte. if `00`, every byte will be guaranteed to be filled with zeroes, and no extra data should be put inside this tag.|
 |variable|this value should only be present if the uint8_t has a value of `01`.|
 
 #### № 2

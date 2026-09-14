@@ -1,9 +1,9 @@
 // assumes system is le.
+#include "k/kcommon.h"
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include "gubcom.h"
 #define die(s, ...) do {fprintf(stderr, "%s: " s "\n", prog, ##__VA_ARGS__);return 1;} while (false)
 
 PACKSTRU(MBoot2Hdr, {

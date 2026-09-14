@@ -4,8 +4,6 @@ SECTIONS {
 	. = 0x8000;
 	.data ALIGN(1) : SUBALIGN(0) { # never align memory!
 		KEEP(*(.data*))
-	}
-	.rodata ALIGN(1) : SUBALIGN(0) {
 		KEEP(*(.rodata*))
 	}
 	.bss ALIGN(1) : SUBALIGN(0) {

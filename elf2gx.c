@@ -3,6 +3,7 @@
 // tool for gubic kernel
 // ONLY to be used with compileGx.sh. expect incompatabilities when used improperly!
 // doesn't often assume system is le
+#include "k/kcommon.h"
 #include <stdio.h>
 #include <stdbool.h>
 #include <fcntl.h>
@@ -11,7 +12,6 @@
 #include <stdlib.h>
 #include <elf.h>
 #include <libelf.h>
-#include "gubcom.h"
 
 #define die(e,...) do {fprintf(stderr,"%s: ", argv[0]);fprintf(stderr,e,##__VA_ARGS__);return 1;} while (false)
 #define ass(c,e,...) do { \
@@ -40,7 +40,7 @@ bool true__putTag(int fd, bool notEnd, uint8_t type, uint32_t sz, void*stuff) {
 
 PACKSTRU(DataTag, {
 	uint32_t minAlloc;
-	bool isntBSS;
+	uint8_t t;
 	uint8_t data[0];
 });
 
@@ -112,7 +112,7 @@ int main(int argc, char**argv) {
 			if (!(isntBSS)) sz = hdr->sh_size;
 			size_t alloc = sizeof(DataTag)+(isntBSS*sz);
 			DataTag*t = calloc(1, alloc);
-			t->isntBSS = isntBSS;
+			t->t = isntBSS;
 			t->minAlloc = sz;
 			if (isntBSS) memcpy(t->data, raw, rawSz);
 			putTag(o, true, 1, alloc, t);

@@ -1,5 +1,7 @@
 #ifndef __STRUCTS_H
 #include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
 #define STRU(name, inside, ...) typedef struct __VA_ARGS__ name inside name
 #define PACKSTRU(name, inside) STRU(name, inside, __attribute__((packed)))
 
@@ -27,7 +29,12 @@ PACKSTRU(SimplePtr, {
 	uint32_t base;
 });
 
-_Static_assert(sizeof(SimplePtr)==6, "idtr fucked");
+_Static_assert(sizeof(SimplePtr)==6, "idtr/gdtr fucked");
+
+PACKSTRU(GreatPtr, {
+	uintptr_t base;
+	size_t size;
+});
 
 PACKSTRU(MBoot2FBInfo, {
 	P32*fb;
@@ -76,7 +83,7 @@ PACKSTRU(MBoot2MemEnt, {
 	uint32_t reserved;
 });
 
-_Static_assert(sizeof(MBoot2MemEnt)==24, "multiboot 2 entry 6 size fucked, should be 24");
+_Static_assert(sizeof(MBoot2MemEnt)==24, "multiboot 2 entry 6 size fucked");
 
 PACKSTRU(MBoot2Mem, {
 	uint32_t entSz;
