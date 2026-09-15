@@ -45,9 +45,10 @@ i see, that most desktops try to look 3d, so i thought, if i wanted to have a 3d
 ### ...for building:
 
  1. qemu (if you set the `RUN` flag to `1`)
- 2. gcc
+ 2. gcc (to compile utils for host environment)
  3. binutils
  4. grub tools (`grub-file`, `grub-install`, ...) (or similar tools that insert a multiboot2 compatible bootloader)
+ 5. 32bit gcc (`gcc -m32`)
 
 ```sh
 RUN=1 ./build.sh

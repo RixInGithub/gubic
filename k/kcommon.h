@@ -3,6 +3,7 @@
 #include "kstructs.h"
 
 uint32_t roundUp(uint32_t, uint32_t);
+uint32_t roundDown(uint32_t, uint32_t);
 uint32_t addPad(uint32_t);
 void*searchTag(uint32_t, uint32_t*);
 

@@ -3,7 +3,7 @@ set -eu
 
 add() { sudo mkdir -p "$mnt"/"$(dirname "$1")" && sudo cp "${2:-$(basename "$1")}" "$mnt"/"$1"; }
 
-disasm() { objdump -b binary -m i386 -M intel -D "$1" | sed -Ee "/^.*nop.*$/d"; }
+disasmk() { objdump -b binary -m i386 -M intel -D kernel.x86 | sed -Ee "/^.*nop.*$/d"; }
 
 stuffWithLoop() {
 	set -eu
@@ -33,6 +33,7 @@ RUN="${RUN:-$DEBUG}"
 GDB="${GDB:-$DEBUG}"
 ANTICRASH="${ANTICRASH:-0}"
 VNC="${VNC:-0}"
+KDISASM="${KDISASM:-0}"
 debf=
 test "$DEBUG" = 0 || debf="-DEBUG"
 rm -f "$name".img
@@ -48,7 +49,7 @@ rm -f ../genMultiboot.x86_64 mboot.bin
 cd ..
 grub-file --is-x86-multiboot2 kernel.x86 || noGrub $?
 echo "kernel + multiboot2 header gen okay"
-# disasm kernel.x86
+test "$KDISASM" = 0 || disasmk
 dev="$(sudo losetup --find --partscan --show "$name".img)"
 stuffWithLoop "$dev" & pid="$!"
 okay=y

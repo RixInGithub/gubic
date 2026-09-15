@@ -7,6 +7,10 @@ uint32_t roundUp(uint32_t a, uint32_t b) {
 	return b*((a+b-1)/b); // close enough
 }
 
+uint32_t roundDown(uint32_t a, uint32_t b) {
+	return a-(a%b);
+}
+
 uint32_t addPad(uint32_t o) {
 	return roundUp(o,8);
 }

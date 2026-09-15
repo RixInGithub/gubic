@@ -107,4 +107,9 @@ STRU(MouseBtns, {
 	bool mid;
 	bool right;
 });
+
+STRU(gubResp, {
+	bool okay;
+	void*resp;
+});
 #endif
