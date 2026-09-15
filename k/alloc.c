@@ -3,44 +3,81 @@
 #include <string.h>
 
 PACKSTRU(AllocHdr, {
-	bool taken;
 	size_t oneSz;
 	size_t items;
 });
 
 typedef GreatPtr AllocMeta;
 
-void*firstMem;
 AllocHdr copy = {0}; // i don't trust myself.
 #define MEM_2_CP(mem) memcpy(&copy, mem, sizeof(AllocHdr))
 #define CP_2_MEM(mem) memcpy(mem, &copy, sizeof(AllocHdr))
 
+struct {
+	bool canUse;
+	AllocMeta extra;
+} extraMem = {0};
 AllocMeta*aMeta;
 size_t aSz;
 
+static gubResp findAlloc(AllocMeta where, size_t minCap, size_t*cntCap) {
+	gubResp r = {0};
+	void*cnt = (void*)where.base;
+	void*end = (void*)((uintptr_t)cnt+(uintptr_t)where.size);
+	while (cnt<end) {
+		MEM_2_CP(cnt);
+		*cntCap = roundUp(copy.items,sizeof(AllocHdr));
+		if ((copy.oneSz==0)&&((*cntCap)>=minCap)) { // we found free mem!
+			r.okay = true;
+			r.resp = cnt;
+			return r;
+		}
+		cnt += sizeof(AllocHdr)+(roundUp(copy.items*copy.oneSz,sizeof(AllocHdr)));
+	}
+	*cntCap = 0;
+	r.okay = false;
+	return r;
+}
+
 gubResp alloc(size_t oneSz, size_t items) {
 	gubResp r = {0};
+	if (oneSz==0) {
+		r.okay = false;
+		return r;
+	}
+	gubResp find;
+	bool canTryExtra = extraMem.canUse;
 	size_t minCap = roundUp(oneSz*items,sizeof(AllocHdr));
 	size_t cntCap;
-	void*cnt = firstMem;
-	while (true) { // TODO: use multiple memory segments?
-		MEM_2_CP(cnt);
-		cntCap = roundUp(copy.oneSz*copy.items,sizeof(AllocHdr));
-		if ((!(copy.taken))&&(cntCap>=minCap)) break; // we found free mem!
-		cnt += sizeof(AllocHdr)+cntCap;
+	size_t idx = 0;
+	size_t max = aSz;
+	void*hdr;
+	while ((idx<max)||(canTryExtra)) {
+		if (canTryExtra) {
+			find = findAlloc(extraMem.extra, minCap, &cntCap);
+			hdr = find.resp;
+			canTryExtra = false;
+			if (find.okay) break;
+		}
+		if (idx<max) {
+			find = findAlloc(aMeta[idx], minCap, &cntCap);
+			hdr = find.resp;
+			if (find.okay) break;
+			idx++;
+		}
 	}
-	void*o = cnt+sizeof(AllocHdr);
-	copy.taken = true;
+	if (!(find.okay)) return find;
+	void*o = hdr+sizeof(AllocHdr);
 	copy.oneSz = oneSz;
 	copy.items = items;
-	CP_2_MEM(cnt);
+	CP_2_MEM(hdr);
 	size_t diff = cntCap-minCap; // diff will be divisible by 8, except when it's 0.
 	if (diff>0) {
-		cnt += sizeof(AllocHdr)+minCap;
-		MEM_2_CP(cnt);
-		copy.taken = false;
-		copy.oneSz = 1;
+		hdr += sizeof(AllocHdr)+minCap;
+		MEM_2_CP(hdr);
+		copy.oneSz = 0;
 		copy.items = diff-sizeof(AllocHdr);
+		CP_2_MEM(hdr);
 	}
 	memset(o, 0, minCap);
 	r.okay = true;
@@ -64,6 +101,10 @@ gubResp growAlloc(void*a, size_t newItems) {
 		r.resp = a;
 		return r;
 	}
+	if (oneSz==0) {
+		r.okay = false;
+		return r;
+	}
 	newCap = roundUp(newItems*oneSz,sizeof(AllocHdr));
 	oldCap = roundUp(oldItems*oneSz,sizeof(AllocHdr));
 	if (newCap<=oldCap) {
@@ -77,8 +118,7 @@ gubResp growAlloc(void*a, size_t newItems) {
 		if (newCap<oldCap) {
 			hdr = a+oldCap;
 			MEM_2_CP(hdr);
-			copy.taken = false;
-			copy.oneSz = 1;
+			copy.oneSz = 0;
 			copy.items = oldCap-newCap-sizeof(AllocHdr);
 			CP_2_MEM(hdr);
 		}
@@ -88,7 +128,8 @@ gubResp growAlloc(void*a, size_t newItems) {
 	}
 	hdr = a+oldCap;
 	MEM_2_CP(hdr);
-	switch ((char)copy.taken) {
+	debugXXD(0,160);
+	switch ((uint8_t)(copy.oneSz!=0)) {
 		case 1:
 			gubResp newAlloc = alloc(oneSz, newItems);
 			if (!(newAlloc.okay)) return newAlloc;
@@ -98,22 +139,25 @@ gubResp growAlloc(void*a, size_t newItems) {
 			r.resp = o;
 			hdr = a-sizeof(AllocHdr);
 			MEM_2_CP(hdr);
-			copy.taken = false;
+			size_t total = copy.oneSz*copy.items;
+			copy.oneSz = 0;
+			copy.items = total;
 			CP_2_MEM(hdr);
 			return r;
 		default:
 			size_t neighborCap = roundUp(copy.items*copy.oneSz,sizeof(AllocHdr));
-			memset(a+oldCap, 0, newCap-oldCap); // clear out memory (security reasons)
+			if (oldCap!=0) memset(a+oldCap, 0, newCap-oldCap); // clear out memory (security reasons)
 			hdr = a-sizeof(AllocHdr);
 			MEM_2_CP(hdr);
 			copy.items = newItems;
 			CP_2_MEM(hdr);
-			hdr += newCap;
-			MEM_2_CP(hdr);
-			copy.taken = false;
-			copy.oneSz = 1;
-			copy.items = neighborCap-(newCap-oldCap);
-			CP_2_MEM(hdr);
+			if (neighborCap!=0) {
+				hdr += newCap;
+				MEM_2_CP(hdr);
+				copy.oneSz = 0;
+				copy.items = neighborCap-(newCap-oldCap);
+				CP_2_MEM(hdr);
+			}
 			r.okay = true;
 			r.resp = a;
 			return r;
@@ -131,25 +175,28 @@ bool setupAlloc() {
 	uint32_t amnt = end-ptr;
 	bool foundUsable = false;
 	aSz = 0;
+	AllocMeta curr;
 	while (ptr<end) {
 		bool usable = (((ptr->t==1)&&(ptr->len>=(sizeof(AllocHdr)+(sizeof(AllocMeta)*amnt))))&&(ptr->baseHi==0));
 		if (usable) {
-			uint32_t len = roundDown(ptr->len,sizeof(AllocHdr));
-			uint32_t base = ptr->baseLo;
+			size_t len = roundDown(ptr->len,sizeof(AllocHdr));
+			uintptr_t base = ptr->baseLo;
 			debugL("alloc: found memory!");
 			debugN(base);
 			debugN(len);
+			curr.base = (uintptr_t)base;
+			curr.size = (size_t)len;
 			void*seg = (void*)base;
 			MEM_2_CP(seg);
-			copy.taken = false; // ensure taken = false
-			copy.oneSz = 1;
+			copy.oneSz = 0; // ensure free
 			copy.items = len-sizeof(AllocHdr);
 			CP_2_MEM(seg);
-			switch ((uint8_t)foundUsable) {
-				case 0:
+			extraMem.canUse = (!(foundUsable));
+			extraMem.extra = curr;
+			switch ((uint8_t)extraMem.canUse) {
+				case 1:
 					foundUsable = true;
-					firstMem = seg;
-					gubResp a = alloc(sizeof(AllocMeta), aSz++);
+					gubResp a = alloc(sizeof(AllocMeta), ++aSz);
 					if (!(a.okay)) return false;
 					aMeta = a.resp;
 					break;
@@ -159,8 +206,7 @@ bool setupAlloc() {
 					aMeta = newA.resp;
 					break;
 			}
-			aMeta[aSz-1].base = (uintptr_t)base;
-			aMeta[aSz-1].size = (size_t)len;
+			memcpy(aMeta+aSz-1, &curr, sizeof(AllocMeta));
 			debugL("alloc: meta");
 			debugXXD(aMeta,sizeof(AllocMeta)*aSz);
 		}

@@ -46,8 +46,8 @@ void __internal__debugNNewlineless__(uint32_t n, uint8_t shl);
 #define debugN16(n) __internal__debugNWithCustomLen__(n,4)
 #define debugN8(n) __internal__debugNWithCustomLen__(n,2)
 
-void debugBin(uint8_t n);
-void debugXXD(void*_, uint32_t len);
+void debugBin(uint8_t);
+void debugXXD(void*, uint32_t);
 
 #define debugBool(b) debugL((b)?"yes":"no")
 

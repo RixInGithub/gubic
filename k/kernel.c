@@ -527,12 +527,12 @@ void k(void) {
 	// interruption from standard programme: memory map finding! yay!
 	//uint32_t offscreenSz = fbDim.p*fbDim.h*4;
 	debugBool(setupAlloc());
-	bool foundMem = false;
-	if (!(foundMem)) {
+	gubResp offA = alloc(sizeof(P32), fbDim.p*fbDim.h);
+	if (!(offA.okay)) {
 		debugL("can't find memory for offscreen framebuffer!");
 		while (true) {}
 	}
-	//offscreen = (P32*)ptr->baseLo;
+	offscreen = offA.resp;
 	// your programme will resume as usual now.
 	mouse[0] = fbDim.w>>1;
 	mouse[1] = fbDim.h>>1;
