@@ -55,7 +55,14 @@ void*growAlloc(void*a, size_t newItems) {
 	if (oldItems==newItems) return a;
 	newCap = roundUp(newItems*oneSz,sizeof(AllocMeta));
 	oldCap = roundUp(oldItems*oneSz,sizeof(AllocMeta));
-	if (oldCap==newCap) return a; // is this even required? prob not, since you can't really change oneSz of an allocation.
+	if (oldCap==newCap) {
+		// alright, imagine this: oneSz=2, oldItems=1. oldCap will be 8.
+		// now with newItems=1, newCap is also... 8...
+		// so same aligned capacity, unequal item counts!
+		hdr.items = newItems;
+		CP_2_MEM(hdr);
+		return a;
+	}
 	debugL("realloc: todo: implement fully!");
 	hdr = a+oldCap;
 	MEM_2_CP(hdr);
