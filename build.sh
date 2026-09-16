@@ -59,7 +59,7 @@ sudo umount "$mnt" || true
 rm -rf "$mnt" rd.tar || true
 test $okay = y || exit 1
 if [ "$RUN" = 1 ]; then
-	anticrashExtra="-enable-kvm -m 512"
+	anticrashExtra="-enable-kvm -m 512 -cpu host" # qemu-system-x86_64: warning: host doesn't support requested feature: CPUID.80000001H:ECX.svm [bit 2]
 	qflags=
 	qdis=gtk
 	test "$GDB" = 0 || qflags="-S -s"

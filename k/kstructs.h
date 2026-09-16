@@ -112,4 +112,10 @@ STRU(gubResp, {
 	bool okay;
 	void*resp;
 });
+
+PACKSTRU(MBoot2Mod, {
+	uintptr_t modStart;
+	uintptr_t modEnd;
+	// some string can also be here but i lowk dont give a fuck
+});
 #endif

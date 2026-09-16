@@ -1,4 +1,5 @@
 #include "kcommon.h"
+#include "alloc.h"
 #include <stddef.h>
 #include <string.h>
 
@@ -6,8 +7,6 @@ PACKSTRU(AllocHdr, {
 	size_t oneSz;
 	size_t items;
 });
-
-typedef GreatPtr AllocMeta;
 
 AllocHdr copy = {0}; // i don't trust myself.
 #define MEM_2_CP(mem) memcpy(&copy, mem, sizeof(AllocHdr))
@@ -20,19 +19,29 @@ struct {
 AllocMeta*aMeta;
 size_t aSz;
 
-static gubResp findAlloc(AllocMeta where, size_t minCap, size_t*cntCap) {
+size_t getSz(size_t oneSz, size_t items) {
+	switch (oneSz) {
+		case 0:
+			return items;
+		default:
+			return oneSz*items;
+	}
+	__builtin_unreachable();
+}
+
+gubResp findAlloc(AllocMeta where, size_t minCap, size_t*cntCap) {
 	gubResp r = {0};
 	void*cnt = (void*)where.base;
 	void*end = (void*)((uintptr_t)cnt+(uintptr_t)where.size);
 	while (cnt<end) {
 		MEM_2_CP(cnt);
-		*cntCap = roundUp(copy.items,sizeof(AllocHdr));
+		*cntCap = roundUp(getSz(copy.oneSz,copy.items),sizeof(AllocHdr));
 		if ((copy.oneSz==0)&&((*cntCap)>=minCap)) { // we found free mem!
 			r.okay = true;
 			r.resp = cnt;
 			return r;
 		}
-		cnt += sizeof(AllocHdr)+(roundUp(copy.items*copy.oneSz,sizeof(AllocHdr)));
+		cnt += sizeof(AllocHdr)+(*cntCap);
 	}
 	*cntCap = 0;
 	r.okay = false;
@@ -47,7 +56,7 @@ gubResp alloc(size_t oneSz, size_t items) {
 	}
 	gubResp find;
 	bool canTryExtra = extraMem.canUse;
-	size_t minCap = roundUp(oneSz*items,sizeof(AllocHdr));
+	size_t minCap = roundUp(getSz(oneSz,items),sizeof(AllocHdr));
 	size_t cntCap;
 	size_t idx = 0;
 	size_t max = aSz;
@@ -105,8 +114,8 @@ gubResp growAlloc(void*a, size_t newItems) {
 		r.okay = false;
 		return r;
 	}
-	newCap = roundUp(newItems*oneSz,sizeof(AllocHdr));
-	oldCap = roundUp(oldItems*oneSz,sizeof(AllocHdr));
+	newCap = roundUp(getSz(oneSz,newItems),sizeof(AllocHdr));
+	oldCap = roundUp(getSz(oneSz,oldItems),sizeof(AllocHdr));
 	if (newCap<=oldCap) {
 		// while newCap may be equal to oldCap,
 		// so imagine this: oneSz=2, oldItems=1. oldCap will be 8.
@@ -128,8 +137,8 @@ gubResp growAlloc(void*a, size_t newItems) {
 	}
 	hdr = a+oldCap;
 	MEM_2_CP(hdr);
-	debugXXD(0,160);
-	switch ((uint8_t)(copy.oneSz!=0)) {
+	size_t neighborCap = roundUp(getSz(copy.oneSz,copy.items),sizeof(AllocHdr));
+	switch ((uint8_t)((copy.oneSz!=0)||(neighborCap<(newCap-oldCap)))) {
 		case 1:
 			gubResp newAlloc = alloc(oneSz, newItems);
 			if (!(newAlloc.okay)) return newAlloc;
@@ -139,20 +148,19 @@ gubResp growAlloc(void*a, size_t newItems) {
 			r.resp = o;
 			hdr = a-sizeof(AllocHdr);
 			MEM_2_CP(hdr);
-			size_t total = copy.oneSz*copy.items;
+			size_t total = getSz(copy.oneSz,copy.items);
 			copy.oneSz = 0;
 			copy.items = total;
 			CP_2_MEM(hdr);
 			return r;
 		default:
-			size_t neighborCap = roundUp(copy.items*copy.oneSz,sizeof(AllocHdr));
-			if (oldCap!=0) memset(a+oldCap, 0, newCap-oldCap); // clear out memory (security reasons)
+			memset(a+oldCap, 0, newCap-oldCap); // clear out memory (security reasons)
 			hdr = a-sizeof(AllocHdr);
 			MEM_2_CP(hdr);
 			copy.items = newItems;
 			CP_2_MEM(hdr);
 			if (neighborCap!=0) {
-				hdr += newCap;
+				hdr += newCap+sizeof(AllocHdr);
 				MEM_2_CP(hdr);
 				copy.oneSz = 0;
 				copy.items = neighborCap-(newCap-oldCap);
@@ -167,6 +175,7 @@ gubResp growAlloc(void*a, size_t newItems) {
 
 bool setupAlloc() {
 	size_t memSz;
+	// interruption from standard programme: memory map finding! yay!
 	MBoot2Mem*mem = searchTag(6, &memSz);
 	debugXXD(mem,memSz);
 	while (!((mem->entSz==sizeof(MBoot2MemEnt))&&(mem->v==0))) {}
@@ -181,7 +190,7 @@ bool setupAlloc() {
 		if (usable) {
 			size_t len = roundDown(ptr->len,sizeof(AllocHdr));
 			uintptr_t base = ptr->baseLo;
-			debugL("alloc: found memory!");
+			debugL("setupAlloc: found memory!");
 			debugN(base);
 			debugN(len);
 			curr.base = (uintptr_t)base;
@@ -214,4 +223,26 @@ bool setupAlloc() {
 	}
 	#undef meta
 	return foundUsable;
+}
+
+AllocUsage aUsage() {
+	AllocUsage u = {0};
+	size_t idx = 0;
+	size_t max = aSz;
+	void*hdr;
+	void*hdrEnd;
+	while (idx<max) {
+		AllocMeta curr = aMeta[idx];
+		hdr = (void*)curr.base;
+		hdrEnd = (void*)(curr.base+curr.size);
+		while (hdr<hdrEnd) {
+			MEM_2_CP(hdr);
+			size_t add = roundUp(getSz(copy.oneSz,copy.items),sizeof(AllocHdr));
+			u.total += add;
+			u.used += (copy.oneSz!=0)*add;
+			hdr += add+sizeof(AllocHdr);
+		}
+		idx++;
+	}
+	return u;
 }

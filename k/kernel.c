@@ -524,15 +524,26 @@ void k(void) {
 	fbDim.gSz = mb2FB->gSz;
 	fbDim.bPos = mb2FB->bPos;
 	fbDim.bSz = mb2FB->bSz;
-	// interruption from standard programme: memory map finding! yay!
-	//uint32_t offscreenSz = fbDim.p*fbDim.h*4;
-	debugBool(setupAlloc());
+	if (!(setupAlloc())) {
+		debugL("can't set up allocation!");
+		while (true) {}
+	}
+	debugL("allocation okay...");
+	MBoot2Mod*mod = searchTag(3,NULL);
+	debugXXD(mod,sizeof(MBoot2Mod));
 	gubResp offA = alloc(sizeof(P32), fbDim.p*fbDim.h);
 	if (!(offA.okay)) {
-		debugL("can't find memory for offscreen framebuffer!");
+		debugL("not enough memory for offscreen framebuffer!");
 		while (true) {}
 	}
 	offscreen = offA.resp;
+	AllocUsage u = aUsage();
+	debugL("used:");
+	debugN(u.used);
+	debugL("total:");
+	debugN(u.total);
+	debugL("free:");
+	debugN(u.total-u.used);
 	// your programme will resume as usual now.
 	mouse[0] = fbDim.w>>1;
 	mouse[1] = fbDim.h>>1;
