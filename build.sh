@@ -43,11 +43,11 @@ echo "disk creation okay"
 rm -f k/mboot.bin
 gcc genMultiboot.c k/kcommon.c -o genMultiboot.x86_64 -O9
 cd extras/gso
-./build.sh -DGSO_GUBIC_K -m32 -mabi=sysv -ffreestanding -no-pie -fno-pie -fno-pic
-cd ../..
-cd k
+CFLAGS="-DGSO_GUBIC_K -m32 -mabi=sysv -ffreestanding -no-pie -fno-pie -fno-pic -nostdlib" ./build.sh
+mv gso.o ../../k
+cd ../../k
 ../genMultiboot.x86_64 mboot.bin 2,0,8192,8192,65536,69632 3,0,8704 1,0,1,2,8,6 5,0,800,600,32 4,0,0
-gcc -m32 -mabi=sysv -ffreestanding -no-pie -fno-pie -fno-pic -nostdlib -Wl,-Tkernel.ld,--build-id=none,--no-warn-rwx-segments *.c -o ../kernel.x86 -Oz -static -fdata-sections -ffunction-sections $debf $@
+gcc -m32 -mabi=sysv -ffreestanding -no-pie -fno-pie -fno-pic -nostdlib -Wl,-Tkernel.ld,--build-id=none,--no-warn-rwx-segments *.c gso.o -o ../kernel.x86 -Oz -static -fdata-sections -ffunction-sections $debf $@
 rm -f ../genMultiboot.x86_64 mboot.bin
 cd ..
 grub-file --is-x86-multiboot2 kernel.x86 || noGrub $?

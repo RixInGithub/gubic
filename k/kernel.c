@@ -537,6 +537,14 @@ void k(void) {
 		while (true) {}
 	}
 	offscreen = offA.resp;
+	gso h = gsoFromCStr("woaw\tgso\tin\tgubic\ti\tlove\tgubic\tlive\tlaugh\t\tlove\tgubic!!!!!!!!!!!!!!!!!!!!!!");
+	gso anotherThing = gsoFromCStr("hmmmm another string i guess");
+	gsoAppend(h,anotherThing);
+	size_t sLen;
+	uint8_t*srz = gsoSrz(h,&sLen);
+	debugL("sLen:");
+	debugN(sLen);
+	debugXXD(srz,sLen);
 	AllocUsage u = aUsage();
 	debugL("used:");
 	debugN(u.used);
@@ -544,6 +552,8 @@ void k(void) {
 	debugN(u.total);
 	debugL("free:");
 	debugN(u.total-u.used);
+	gsoFree(h);
+	freeAlloc(srz);
 	// your programme will resume as usual now.
 	mouse[0] = fbDim.w>>1;
 	mouse[1] = fbDim.h>>1;

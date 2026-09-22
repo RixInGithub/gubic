@@ -3,6 +3,7 @@
 *.bin
 *.x86
 *.gx
+*.o
 mnt/*
 rd.tar
 *.trueGx.*

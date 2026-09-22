@@ -246,3 +246,11 @@ AllocUsage aUsage() {
 	}
 	return u;
 }
+
+void freeAlloc(void*a) {
+	void*hdr = a-sizeof(AllocHdr);
+	MEM_2_CP(hdr);
+	copy.items = copy.oneSz*copy.items;
+	copy.oneSz = 0;
+	CP_2_MEM(hdr);
+}

@@ -16,4 +16,5 @@ gubResp alloc(size_t, size_t);
 gubResp growAlloc(void*, size_t);
 bool setupAlloc();
 AllocUsage aUsage();
+void freeAlloc(void*);
 #endif

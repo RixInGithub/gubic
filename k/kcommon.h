@@ -1,6 +1,7 @@
 #ifndef __COMMON_H
 #define __COMMON_H
 #include "kstructs.h"
+#include "../extras/gso/gso.h"
 
 uint32_t roundUp(uint32_t, uint32_t);
 uint32_t roundDown(uint32_t, uint32_t);
