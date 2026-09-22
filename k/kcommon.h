@@ -35,6 +35,8 @@ extern void*payload;
 	#define DEBUG_PORT 0xe9
 #endif
 
+#define XXD_OCTETS 16
+
 void debugS(char*);
 
 #define debugL(s) do {debugS(s);debugC(10);} while (false)

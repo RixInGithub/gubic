@@ -238,8 +238,8 @@ AllocUsage aUsage() {
 		while (hdr<hdrEnd) {
 			MEM_2_CP(hdr);
 			size_t add = roundUp(getSz(copy.oneSz,copy.items),sizeof(AllocHdr));
-			u.total += add;
-			u.used += (copy.oneSz!=0)*add;
+			u.total += add+sizeof(AllocHdr);
+			u.used += (copy.oneSz!=0)*add+sizeof(AllocHdr);
 			hdr += add+sizeof(AllocHdr);
 		}
 		idx++;

@@ -114,18 +114,14 @@ void debugXXD(void*_, uint32_t len) {
 	while (cnt<end) {
 		__internal__debugNNewlineless__((uint32_t)(uintptr_t)cnt,8);
 		debugC(58);
-		uint8_t tmp1 = 0;
-		while (tmp1<8) {
-			uint8_t tmp2 = 0;
-			while (tmp2<2) {
-				if (cnt<end) {
-					if (tmp2==0) debugC(32);
-					__internal__debugNNewlineless__((uint32_t)(*cnt),2);
-				}
-				tmp2++;
-				cnt++;
+		uint8_t col = 0;
+		while (col<XXD_OCTETS) {
+			if (cnt<end) {
+				if ((col%2)==0) debugC(32);
+				__internal__debugNNewlineless__((uint32_t)(*cnt),2);
 			}
-			tmp1++;
+			cnt++;
+			col++;
 		}
 		debugC(10);
 	}

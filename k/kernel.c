@@ -530,7 +530,7 @@ void k(void) {
 	}
 	debugL("allocation okay...");
 	MBoot2Mod*mod = searchTag(3,NULL);
-	debugXXD(mod,sizeof(MBoot2Mod));
+	debugXXD((void*)mod->modStart,XXD_OCTETS*10);
 	gubResp offA = alloc(sizeof(P32), fbDim.p*fbDim.h);
 	if (!(offA.okay)) {
 		debugL("not enough memory for offscreen framebuffer!");
