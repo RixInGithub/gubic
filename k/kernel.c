@@ -436,8 +436,6 @@ void interruptsSetup(void) {
 	outbNWait(0xa1, 0x02);
 	outbNWait(0x21, 0x01);
 	outbNWait(0xa1, 0x01);
-	outb(0x21, 0xff);
-	outb(0xa1, 0xff);
 	ps2Write(0xad);
 	ps2Write(0xa7);
 	while (inb(0x64) & 1) {
@@ -458,7 +456,8 @@ void interruptsSetup(void) {
 		} \
 	} while (false)
 	NEEDFA(0xf4);
-	outb(0x21, 0xf8);
+	bool disableInt0x20 = true;
+	outb(0x21, 0xf8|disableInt0x20);
 	outb(0xa1, 0xef);
 	// end
 	// enable z
@@ -499,6 +498,12 @@ void interruptsSetup(void) {
 	ps2Write(0xae); // enable keyboard i guess?
 	__asm__ volatile ("sti");
 }
+
+__asm__ (
+	"baseSyscall:\n"
+		"sysret\n"
+		"# uhhhh"
+);
 
 void k(void) {
 	interruptsSetup();

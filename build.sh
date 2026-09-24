@@ -74,5 +74,6 @@ if [ "$RUN" = 1 ]; then
 	test "$ANTICRASH" = 0 || anticrashExtra="-d int -no-reboot" # kvm for some reason makes the anticrash logs not show, so i disable kvm to enable the anticrash.
 	QFLAGS="${QFLAGS:-}"
 	set -x
-	qemu-system-x86_64 -drive format=raw,file="$name".img -netdev user,id=mynet0 -device ne2k_pci,netdev=mynet0 -display $qdis $qflags $anticrashExtra $QFLAGS
+	# 1>wow.txt 2>&1
+	qemu-system-i386 -drive format=raw,file="$name".img -netdev user,id=mynet0 -device ne2k_pci,netdev=mynet0 -display $qdis $qflags $anticrashExtra $QFLAGS
 fi
