@@ -373,6 +373,18 @@ void timerH(void) {
 	msUp++;
 }
 
+uint32_t syscallH(uint32_t a, uint8_t b, uint8_t c, uint32_t d) {
+	debugS("a: ");
+	debugN(a);
+	debugS("b: ");
+	debugN8(b);
+	debugS("c: ");
+	debugN8(c);
+	debugS("d: ");
+	debugN(d);
+	return a+b+c+d;
+}
+
 __asm__ (
 	".section .text\n"
 	".global stubH\n"
@@ -413,6 +425,39 @@ __asm__ (
 );
 extern void tH(void);
 
+__asm__ (
+	// src, dest
+	"baseSyscallStk:\n"
+		".rept 3\n"
+			".long 0\n"
+		".endr\n"
+	"baseSyscallEbx: .long 0\n"
+	"baseSyscallRet: .long 0\n"
+	"baseSyscall:\n"
+		"mov %ebx, baseSyscallEbx\n"
+		"xor %eax, %eax\n"
+		"xor %ebx, %ebx\n"
+		"baseSyscallLoop1:\n"
+			"pop %eax\n"
+			"mov %eax, baseSyscallStk(,%ebx,4)\n"
+			"inc %ebx\n"
+			"cmp $3, %ebx\n"
+			"jl baseSyscallLoop1\n"
+		"call syscallH\n"
+		"mov %eax, baseSyscallRet\n"
+		"mov $3, %ebx\n"
+		"baseSyscallLoop2:\n"
+			"dec %ebx\n"
+			"mov baseSyscallStk(,%ebx,4), %eax\n"
+			"push %eax\n"
+			"test %ebx, %ebx\n"
+			"jnz baseSyscallLoop2\n"
+		"mov baseSyscallRet, %eax\n"
+		"mov baseSyscallEbx, %ebx\n"
+		"iret"
+);
+extern void baseSyscall(void);
+
 void interruptsSetup(void) {
 	uint16_t irqCnt = 0;
 	while (irqCnt<0xff) {
@@ -422,6 +467,7 @@ void interruptsSetup(void) {
 	SETIRQ(0x20, tH);
 	SETIRQ(0x2c, mouseH);
 	SETIRQ(0x21, mouseH); // one handler for mouse and kbd
+	SETIRQ(0x80, baseSyscall); // okay, whatever lemme try this rq
 	__asm__ volatile (
 		"lidt %0"
 		:
@@ -499,11 +545,25 @@ void interruptsSetup(void) {
 	__asm__ volatile ("sti");
 }
 
-__asm__ (
-	"baseSyscall:\n"
-		"sysret\n"
-		"# uhhhh"
-);
+// from userland/funny.c
+__attribute__((naked)) uint32_t syscall(uint32_t a, uint8_t b, uint8_t c, uint32_t d) {
+	// my model of the syscall. :)
+	static uint32_t ret;
+	static uint32_t tmpEax;
+	__asm__ volatile (
+		"mov %%eax, %0\n"
+		"pop %%eax\n"
+		"mov %%eax, %1\n"
+		"int $0x80\n"
+		"mov %%eax, %0\n"
+		"mov %1, %%eax\n"
+		"push %%eax\n"
+		"mov %0, %%eax\n"
+		"ret"
+		: "=m"(tmpEax), "=m"(ret)
+	);
+	__builtin_unreachable();
+}
 
 void k(void) {
 	interruptsSetup();
@@ -543,8 +603,6 @@ void k(void) {
 	}
 	offscreen = offA.resp;
 	gso h = gsoFromCStr("woaw\tgso\tin\tgubic\ti\tlove\tgubic\tlive\tlaugh\t\tlove\tgubic!!!!!!!!!!!!!!!!!!!!!!");
-	gso anotherThing = gsoFromCStr("hmmmm another string i guess");
-	gsoAppend(h,anotherThing);
 	size_t sLen;
 	uint8_t*srz = gsoSrz(h,&sLen);
 	debugL("sLen:");
@@ -559,6 +617,7 @@ void k(void) {
 	debugN(u.total-u.used);
 	gsoFree(h);
 	freeAlloc(srz);
+	debugN(syscall(0xaaaaaaaa, 0xbb, 0xcc, 0xdddddddd));
 	// your programme will resume as usual now.
 	mouse[0] = fbDim.w>>1;
 	mouse[1] = fbDim.h>>1;

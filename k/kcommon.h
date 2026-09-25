@@ -44,7 +44,7 @@ void debugS(char*);
 
 void __internal__debugNNewlineless__(uint32_t n, uint8_t shl);
 
-#define __internal__debugNWithCustomLen__(n,l) do {debugS("0x");__internal__debugNNewlineless__(n, l);debugC(10);} while (false)
+#define __internal__debugNWithCustomLen__(n,l) do {uint32_t trueN = n;debugS("0x");__internal__debugNNewlineless__(trueN, l);debugC(10);} while (false)
 #define debugN(n) __internal__debugNWithCustomLen__(n,8)
 #define debugN16(n) __internal__debugNWithCustomLen__(n,4)
 #define debugN8(n) __internal__debugNWithCustomLen__(n,2)
