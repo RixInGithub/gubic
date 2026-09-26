@@ -119,7 +119,7 @@ gubResp growAlloc(void*a, size_t newItems) {
 	if (newCap<=oldCap) {
 		// while newCap may be equal to oldCap,
 		// so imagine this: oneSz=2, oldItems=1. oldCap will be 8.
-		// now with newItems=1, newCap is also... 8...
+		// now with newItems=1, newCap is also… 8?
 		// so same aligned capacity, unequal item counts!
 		// smth like that, idk.
 		copy.items = newItems;

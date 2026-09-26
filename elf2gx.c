@@ -49,7 +49,7 @@ int main(int argc, char**argv) {
 	uint16_t majmin = 0x0000;
 	uint8_t patch = 0x00;
 	ass((argc==3),"provide only a file to convert and an output file!\n");
-	printf("converting intermediate elf to gx...\n");
+	printf("converting intermediate elf to gx…\n");
 	int fd = open(argv[1], O_RDONLY);
 	ass((fd>=0),"could not open file \"%s\"!\n", argv[1]);
 	elf_version(EV_CURRENT);
@@ -85,7 +85,7 @@ int main(int argc, char**argv) {
 				size_t matched = 0; \
 				while (matched<(sizeof(__a)/sizeof(*__a))) { \
 					if (strcmp(__a[matched],n)==0) { \
-						printf("*** processing section %s...\n", n); \
+						printf("*** processing section %s…\n", n); \
 						if (obtainDat) OBTAIN_DAT(); \
 						if (true) inside; \
 						proc = true; \

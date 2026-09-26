@@ -10,7 +10,7 @@ SECTIONS {
 		KEEP(*(.bss*))
 	}
 	. = ALIGN(0x100); # align it!
-	.text ALIGN(1) : SUBALIGN(0) { # don't align in here too just in case...
+	.text ALIGN(1) : SUBALIGN(0) { # don't align in here too just in case…
 		KEEP(*(.__gubic__start))
 		KEEP(*(.text*))
 	}

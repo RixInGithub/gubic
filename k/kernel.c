@@ -252,7 +252,7 @@ void kbdH(void) {
 		PRTKEY(b, 1, 0x30),
 		PRTKEY(n, 1, 0x31),
 		PRTKEY(m, 1, 0x32),
-		// extended keys...
+		// extended keys…
 		KEY(KEY_CTRL, 2, 0xe0, 0x1d), // right control? more like just control.
 		KEY(KEY_L, 2, 0xe0, 0x4b),
 		KEY(KEY_R, 2, 0xe0, 0x4d),
@@ -502,8 +502,14 @@ void interruptsSetup(void) {
 		} \
 	} while (false)
 	NEEDFA(0xf4);
-	bool disableInt0x20 = true;
-	outb(0x21, 0xf8|disableInt0x20);
+	#define DISABLE_INT_0x20__TRUEVAL false
+	#if ISABLE_INT_0x20
+		// -DISABLE_INT_0x20
+		#undef DISABLE_INT_0x20__TRUEVAL
+		#define DISABLE_INT_0x20__TRUEVAL true
+	#endif
+	outb(0x21, 0xf8|DISABLE_INT_0x20__TRUEVAL);
+	#undef DISABLE_INT_0x20__TRUEVAL
 	outb(0xa1, 0xef);
 	// end
 	// enable z
@@ -539,7 +545,7 @@ void interruptsSetup(void) {
 			while (true) {}
 		}
 		outb(0x3fc, 0x0f);
-		debugL("com1 logging starts here...");
+		debugL("com1 logging starts here…");
 	#endif
 	ps2Write(0xae); // enable keyboard i guess?
 	__asm__ volatile ("sti");
@@ -580,7 +586,7 @@ void k(void) {
 	while (!((mb2FB->fbHi==0)&&((mb2FB->bpp==32)&&(mb2FB->t==1)))) {}
 	debugL("32bit addr, 32bit bpp, type 1 fb, can double buffer!");
 	fb = mb2FB->fb; // holy framebuffer
-	fbDim.p = (mb2FB->p)/4;
+	fbDim.p = mb2FB->p>>2;
 	fbDim.w = mb2FB->w;
 	fbDim.h = mb2FB->h;
 	fbDim.rPos = mb2FB->rPos;
@@ -593,7 +599,7 @@ void k(void) {
 		debugL("can't set up allocation!");
 		while (true) {}
 	}
-	debugL("allocation okay...");
+	debugL("allocation okay…");
 	MBoot2Mod*mod = searchTag(3,NULL);
 	debugXXD((void*)mod->modStart,XXD_OCTETS*10);
 	gubResp offA = alloc(sizeof(P32), fbDim.p*fbDim.h);
@@ -617,7 +623,7 @@ void k(void) {
 	debugN(u.total-u.used);
 	gsoFree(h);
 	freeAlloc(srz);
-	debugN(syscall(0xaaaaaaaa, 0xbb, 0xcc, 0xdddddddd));
+	//debugN(syscall(0xaaaaaaaa, 0xbb, 0xcc, 0xdddddddd));
 	// your programme will resume as usual now.
 	mouse[0] = fbDim.w>>1;
 	mouse[1] = fbDim.h>>1;

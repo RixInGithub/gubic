@@ -2,7 +2,7 @@
 
 **note**: before v1, this format will change sometimes without an increase to a version number. be careful, people of the future!
 
-**note**: this covers parts for `.gobj` too. (i can't believe the go programming language exists... ugh...)
+**note**: this covers parts for `.gobj` too. (i can't believe the go programming language exists… ugh…)
 
 **note**: this is my first time designing my own executable format. expect unclear specifications! the gubic kernel has a lot of useful info on wtf do i mean (most of the time?)
 
@@ -14,7 +14,7 @@ a gubic executable is loaded at offset 0x8000 for tag № 1's contents, and the 
 
 ## the header
 
-every file needs a header that mandatorily sits at the start of the file, otherwise detection becomes a tiny bit funky...
+every file needs a header that mandatorily sits at the start of the file, otherwise detection becomes a tiny bit funky…
 
 |size, b|description|
 |:-:|:-|
@@ -24,7 +24,7 @@ every file needs a header that mandatorily sits at the start of the file, otherw
 
 ## the rest
 
-you might wonder... why's the header so small? well my friend this file format is tag-based. what does that mean? the sections of a `.gx` (or a `.gobj`) can be rearranged with no side effects! perfect for an executable format of my own, it'll be like multiboot2 tags. :)
+you might wonder, why's the header so small? well my friend this file format is tag-based. what does that mean? the sections of a `.gx` (or a `.gobj`) can be rearranged with no side effects! perfect for an executable format of my own, it'll be like multiboot2 tags. :)
 
 ### tag header
 

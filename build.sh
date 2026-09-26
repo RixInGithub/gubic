@@ -28,14 +28,16 @@ noGrub() {
 name=gubic
 start=128
 mnt=mnt
-DEBUG="${DEBUG:-0}"
+DEBUG="${DEBUG:-n}"
 RUN="${RUN:-$DEBUG}"
 GDB="${GDB:-$DEBUG}"
-ANTICRASH="${ANTICRASH:-0}"
-VNC="${VNC:-0}"
-KDISASM="${KDISASM:-0}"
-debf=
-test "$DEBUG" = 0 || debf="-DEBUG"
+ANTICRASH="${ANTICRASH:-n}"
+VNC="${VNC:-n}"
+KDISASM="${KDISASM:-n}"
+LOG="${LOG:-}"
+kflags=
+test "$DEBUG" = n || kflags="-DEBUG"
+test "$ANTICRASH" = n || kflags="${kflags:+$kflags }-DISABLE_INT_0x20"
 rm -f "$name".img
 qemu-img create -f raw "$name".img 16M > /dev/null
 printf "label: dos\nstart=$start, type=07, bootable\n" | sfdisk "$name".img > /dev/null
@@ -47,12 +49,12 @@ CFLAGS="-DGSO_GUBIC_K -m32 -mabi=sysv -ffreestanding -no-pie -fno-pie -fno-pic -
 mv gso.o ../../k
 cd ../../k
 ../genMultiboot.x86_64 mboot.bin 2,0,8192,8192,65536,69632 3,0,8704 1,0,1,2,8,6 5,0,800,600,32 4,0,0
-gcc -m32 -mabi=sysv -ffreestanding -no-pie -fno-pie -fno-pic -nostdlib -Wl,-Tkernel.ld,--build-id=none,--no-warn-rwx-segments *.c gso.o -o ../kernel.x86 -Oz -static -fdata-sections -ffunction-sections $debf $@
+gcc -m32 -mabi=sysv -ffreestanding -no-pie -fno-pie -fno-pic -nostdlib -Wl,-Tkernel.ld,--build-id=none,--no-warn-rwx-segments *.c gso.o -o ../kernel.x86 -Oz -static -fdata-sections -ffunction-sections $kflags $@
 rm -f ../genMultiboot.x86_64 mboot.bin
 cd ..
 grub-file --is-x86-multiboot2 kernel.x86 || noGrub $?
 echo "kernel + multiboot2 header gen okay"
-test "$KDISASM" = 0 || disasmk
+test "$KDISASM" = n || disasmk
 dev="$(sudo losetup --find --partscan --show "$name".img)"
 stuffWithLoop "$dev" & pid="$!"
 okay=y
@@ -61,19 +63,20 @@ sudo losetup -d "$dev"
 sudo umount "$mnt" || true
 rm -rf "$mnt" rd.tar || true
 test $okay = y || exit 1
-if [ "$RUN" = 1 ]; then
+if [ "$RUN" = y ]; then
+	qflags="qemu-system-i386 -drive format=raw,file=\"$name\".img -netdev user,id=mynet0 -device ne2k_pci,netdev=mynet0"
 	anticrashExtra="-enable-kvm -m 512 -cpu host" # qemu-system-x86_64: warning: host doesn't support requested feature: CPUID.80000001H:ECX.svm [bit 2]
-	qflags=
 	qdis=gtk
-	test "$GDB" = 0 || qflags="-S -s"
-	test "$DEBUG" = 0 || qflags="${qflags:+$qflags }-debugcon stdio"
-	if ! [ "$VNC" = 0 ]; then
-		qdis=none
-		qflags="${qflags:+$qflags }-vnc :0"
-	fi
-	test "$ANTICRASH" = 0 || anticrashExtra="-d int -no-reboot" # kvm for some reason makes the anticrash logs not show, so i disable kvm to enable the anticrash.
-	QFLAGS="${QFLAGS:-}"
-	set -x
-	# 1>wow.txt 2>&1
-	qemu-system-i386 -drive format=raw,file="$name".img -netdev user,id=mynet0 -device ne2k_pci,netdev=mynet0 -display $qdis $qflags $anticrashExtra $QFLAGS
+	test "$VNC" = n || qdis="none -vnc :0" # :3
+	qflags="$qflags -display $qdis"
+	test "$GDB" = n || qflags="$qflags -S -s"
+	test "$DEBUG" = n || qflags="$qflags -debugcon stdio"
+	test "$ANTICRASH" = n || anticrashExtra="-d int -no-reboot" # kvm for some reason makes the anticrash logs not show, so i disable kvm to enable the anticrash.
+	qflags="$qflags $anticrashExtra"
+	# test "${QFLAGS:-}" = "" || qflags="$qflags $QFLAGS"
+	loga="1>\"$LOG\".log 2>&1"
+	[ "$LOG" = "" ] || qflags="$qflags $loga" # make sure this is always LAST
+	qlog="$PS4$qflags" # make it look real
+	echo "$qlog"
+	exec sh -c "$qflags"
 fi
