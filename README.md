@@ -48,7 +48,7 @@ i see, that most desktops try to look 3d, so i thought, if i wanted to have a 3d
  2. gcc (to compile utils for host environment)
  3. binutils
  4. grub tools (`grub-file`, `grub-install`, etc.) (or similar tools that insert a multiboot2 compatible bootloader)
- 5. 32bit gcc (`gcc -m32`) (uhh and probably `gcc-multilib` too? im not sure…)
+ 5. 32bit gcc (`gcc -m32`) (and probably `gcc-multilib` too? im not sure…)
 
 ```sh
 RUN=1 ./build.sh
@@ -57,15 +57,17 @@ RUN=1 ./build.sh
 ### …for running
 
  1. normal hardware (emulators should work best)
- 2. gdb (if `GDB=1` (or `DEBUG=1` and `GDB` unspecified))
+ 2. gdb (if `GDB` flag is enabled)
 
 |flag|meaning|
 |:-:|-|
-|`RUN`|pretty straightforward. if `1`, executes a simple qemu command (depending on your other args). this will be `1` when `DEBUG=1` and unspecified.|
-|`DEBUG`|if `1`, enables `GDB` and `RUN` unless specified otherwise. enables qemu debugcon piping to stdout.|
+|`RUN`|pretty straightforward. if `y`, executes a qemu command (depending on your other args). this will be `y` when `DEBUG=y` and unspecified.|
+|`DEBUG`|if `y`, enables `GDB` and `RUN` unless specified otherwise. enables qemu debugcon piping to stdout.|
 |`GDB`|adds `-S -s` to qemu flags.|
 |`ANTICRASH`|adds a few anti crash flags to the qemu command. disables kvm.|
 |`VNC`|tells qemu to display gubic in a vnc server at port `5900` instead of opening a graphical window.|
+|`KDISASM`|whether to disassemble the entire kernel after building kernel.|
+|`LOG`|if not blank, qemu logs get piped to this flag's value plus a `.log` file extension.|
 
 to add extra flags to kernel compilation, feed some argv to the build script.
 

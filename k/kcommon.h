@@ -27,13 +27,12 @@ extern void*payload;
 #define KEY_D				KEY_MIN+8
 #define KEY_MAX KEY_D
 
-#define NO_DBG 1
-#define DEBUG_PORT 0x3f8 // log to com1 if no debug
-#define debugC(c) outb(DEBUG_PORT, c)
+// log only to com1 if no debug
+#define __internal__debugCToQemu(c)
+#define debugC(c) do {outb(0x3f8, c);__internal__debugCToQemu(c);} while (false)
 #if EBUG
-	#undef NO_DBG
-	#undef DEBUG_PORT
-	#define DEBUG_PORT 0xe9
+	#undef __internal__debugCToQemu
+	#define __internal__debugCToQemu(c) outb(0xe9, c)
 #endif
 
 #define XXD_OCTETS 16

@@ -2,12 +2,7 @@
 #include "alloc.h"
 #include <stdbool.h>
 #include <stddef.h>
-__asm__ (
-	".section .multiboot, \"a\"\n"
-	".incbin \"mboot.bin\""
-);
 
-__asm__ (".section .data");
 P32*fb;
 MBoot2FBInfo*mb2FB;
 volatile int16_t mouseState[5] = {0};
@@ -20,17 +15,6 @@ uint32_t memMapSz;
 FBDim fbDim = {0};
 volatile uint32_t msUp = 0;
 volatile MouseBtns mouseBtns;
-
-__attribute__((naked, section(".startup"))) void __startup(void) {
-	__asm__ volatile (
-		"movl %ebx, payload\n"
-		"cli\n"
-		"cmpl $0x36d76289, %eax\n"
-		"je k\n"
-		"jmp ."
-	);
-	__builtin_unreachable();
-}
 
 P32 p32FromRGBA(uint32_t col) {
 	col >>= 8; // discard a
@@ -56,6 +40,7 @@ uint32_t rgbaFromP32(P32 col) {
 }
 
 void clear(uint32_t col) {
+	// basically a budget memcpy that accounts for the fact offscreen is a framebuffer with pitch
 	P32 abcd = p32FromRGBA(col);
 	uint32_t pxCnt = 0;
 	uint32_t rowCnt = 0;
@@ -127,8 +112,8 @@ static uint32_t min32(uint32_t a, uint32_t b) {
 void tri(uint32_t col, float x1, float y1, float x2, float y2, float x3, float y3, uint8_t opacity) {
 	if (opacity==0) return;
 	uint32_t minX = min32(min3(x1,x2,x3),fbDim.w);
-	uint32_t maxX = min32(max3(x1,x2,x3),fbDim.w);
 	uint32_t minY = min32(min3(y1,y2,y3),fbDim.h);
+	uint32_t maxX = min32(max3(x1,x2,x3),fbDim.w);
 	uint32_t maxY = min32(max3(y1,y2,y3),fbDim.h);
 	float a1 = y1-y2;
 	float b1 = x2-x1;
@@ -182,7 +167,7 @@ void tri(uint32_t col, float x1, float y1, float x2, float y2, float x3, float y
 }
 
 void copyOffscreen(void) {
-	// most of this shite be copied from `clear` now
+	// basically a budget memcpy that accounts for the fact offscreen is a framebuffer with pitch
 	uint32_t cnt = 0;
 	uint32_t h = fbDim.h;
 	uint32_t p = fbDim.p;
@@ -386,53 +371,27 @@ uint32_t syscallH(uint32_t a, uint8_t b, uint8_t c, uint32_t d) {
 }
 
 __asm__ (
-	".section .text\n"
-	".global stubH\n"
-	"stubH:\n"
-		"pusha\n"
-		"movb $0x20, %al\n"
-		"outb %al, $0x20\n"
-		"outb %al, $0xa0\n"
-		"popa\n"
-		"iret\n"
-);
-extern void stubH(void);
-
-__asm__ (
-	".section .text\n"
-	".global mouseH\n"
-	"mouseH:\n"
-		"pusha\n" // pusha pusha yo
-		"call mousierH\n"
-		"movb $0x20, %al\n"
-		"outb %al, $0xa0\n"
-		"outb %al, $0x20\n"
-		"popa\n"
-		"iret" // bye!
-);
-extern void mouseH(void);
-
-__asm__ (
-	".section .text\n"
-	".global tH\n"
-	"tH:\n"
-		"pusha\n"
-		"call timerH\n"
-		"movb $0x20, %al\n"
-		"outb %al, $0x20\n"
-		"popa\n"
-		"iret\n"
-);
-extern void tH(void);
-
-__asm__ (
 	// src, dest
+	".section .multiboot, \"a\"\n"
+	".incbin \"mboot.bin\"\n"
+	"\n"
+	".section .startup, \"a\"\n"
+	"mov %ebx, payload\n"
+	"cli\n"
+	"cmpl $0x36d76289, %eax\n"
+	"je k\n"
+	"jmp .\n"
+	"\n"
+	".data\n"
 	"baseSyscallStk:\n"
 		".rept 3\n"
 			".long 0\n"
 		".endr\n"
 	"baseSyscallEbx: .long 0\n"
 	"baseSyscallRet: .long 0\n"
+	"\n"
+	".text\n"
+	".global baseSyscall\n"
 	"baseSyscall:\n"
 		"mov %ebx, baseSyscallEbx\n"
 		"xor %eax, %eax\n"
@@ -454,8 +413,37 @@ __asm__ (
 			"jnz baseSyscallLoop2\n"
 		"mov baseSyscallRet, %eax\n"
 		"mov baseSyscallEbx, %ebx\n"
+		"iret\n"
+	".global stubH\n"
+	"stubH:\n"
+		"pusha\n"
+		"movb $0x20, %al\n"
+		"outb %al, $0x20\n"
+		"outb %al, $0xa0\n"
+		"popa\n"
+		"iret\n"
+	".global mouseH\n"
+	"mouseH:\n"
+		"pusha\n" // pusha pusha yo
+		"call mousierH\n"
+		"movb $0x20, %al\n"
+		"outb %al, $0xa0\n"
+		"outb %al, $0x20\n"
+		"popa\n"
+		"iret\n" // bye!
+	".global tH\n"
+	"tH:\n"
+		"pusha\n"
+		"call timerH\n"
+		"movb $0x20, %al\n"
+		"outb %al, $0x20\n"
+		"popa\n"
 		"iret"
 );
+
+extern void stubH(void);
+extern void mouseH(void);
+extern void tH(void);
 extern void baseSyscall(void);
 
 void interruptsSetup(void) {
@@ -502,13 +490,13 @@ void interruptsSetup(void) {
 		} \
 	} while (false)
 	NEEDFA(0xf4);
-	#define DISABLE_INT_0x20__TRUEVAL false
+	/*#define DISABLE_INT_0x20__TRUEVAL false
 	#if ISABLE_INT_0x20
 		// -DISABLE_INT_0x20
 		#undef DISABLE_INT_0x20__TRUEVAL
 		#define DISABLE_INT_0x20__TRUEVAL true
-	#endif
-	outb(0x21, 0xf8|DISABLE_INT_0x20__TRUEVAL);
+	#endif*/
+	outb(0x21, 0xf8/*|DISABLE_INT_0x20__TRUEVAL*/);
 	#undef DISABLE_INT_0x20__TRUEVAL
 	outb(0xa1, 0xef);
 	// end
@@ -530,45 +518,23 @@ void interruptsSetup(void) {
 	outb(0x43, 0x36);
 	outb(0x40, (uint8_t)(div&0xFF));
 	outb(0x40, (uint8_t)((div>>8)&0xFF));
-	#if NO_DBG
-		// source: https://wiki.osdev.org/Serial_Ports#Initialization
-		outb(0x3f9, 0x00);
-		outb(0x3fb, 0x80);
-		outb(0x3f8, 0x03);
-		outb(0x3f9, 0x00);
-		outb(0x3fb, 0x03);
-		outb(0x3fa, 0xc7);
-		outb(0x3fc, 0x0b);
-		outb(0x3fc, 0x1e);
-		outb(0x3f8, 67); // ó7
-		if (inb(0x3f8) != 67) { // ó7
-			while (true) {}
-		}
-		outb(0x3fc, 0x0f);
-		debugL("com1 logging starts here…");
-	#endif
+	// source: https://wiki.osdev.org/Serial_Ports#Initialization
+	outb(0x3f9, 0x00);
+	outb(0x3fb, 0x80);
+	outb(0x3f8, 0x03);
+	outb(0x3f9, 0x00);
+	outb(0x3fb, 0x03);
+	outb(0x3fa, 0xc7);
+	outb(0x3fc, 0x0b);
+	outb(0x3fc, 0x1e);
+	outb(0x3f8, 67); // ó7
+	if (inb(0x3f8) != 67) { // ó7
+		while (true) {}
+	}
+	outb(0x3fc, 0x0f);
+	debugL("com1 logging starts here...");
 	ps2Write(0xae); // enable keyboard i guess?
 	__asm__ volatile ("sti");
-}
-
-// from userland/funny.c
-__attribute__((naked)) uint32_t syscall(uint32_t a, uint8_t b, uint8_t c, uint32_t d) {
-	// my model of the syscall. :)
-	static uint32_t ret;
-	static uint32_t tmpEax;
-	__asm__ volatile (
-		"mov %%eax, %0\n"
-		"pop %%eax\n"
-		"mov %%eax, %1\n"
-		"int $0x80\n"
-		"mov %%eax, %0\n"
-		"mov %1, %%eax\n"
-		"push %%eax\n"
-		"mov %0, %%eax\n"
-		"ret"
-		: "=m"(tmpEax), "=m"(ret)
-	);
-	__builtin_unreachable();
 }
 
 void k(void) {
@@ -623,7 +589,7 @@ void k(void) {
 	debugN(u.total-u.used);
 	gsoFree(h);
 	freeAlloc(srz);
-	//debugN(syscall(0xaaaaaaaa, 0xbb, 0xcc, 0xdddddddd));
+	// debugN(syscall(0xaaaaaaaa, 0xbb, 0xcc, 0xdddddddd));
 	// your programme will resume as usual now.
 	mouse[0] = fbDim.w>>1;
 	mouse[1] = fbDim.h>>1;

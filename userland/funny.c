@@ -2,24 +2,26 @@
 
 int res;
 
-__attribute__((naked)) uint32_t syscall(uint32_t a, uint8_t b, uint8_t c, uint32_t d) {
-	// my model of the syscall. :)
-	static uint32_t ret;
-	static uint32_t tmpEax;
-	__asm__ volatile (
-		"mov %%eax, %0\n"
-		"pop %%eax\n"
-		"mov %%eax, %1\n"
+__asm__ (
+	".data\n"
+	"syscallRet: .long 0\n"
+	"syscallEax: .long 0\n"
+	"\n"
+	".text\n"
+	".global syscall\n"
+	"syscall:"
+		"mov %eax, syscallEax\n"
+		"pop %eax\n"
+		"mov %eax, syscallRet\n"
 		"int $0x80\n"
-		"mov %%eax, %0\n"
-		"mov %1, %%eax\n"
-		"push %%eax\n"
-		"mov %0, %%eax\n"
+		"mov %eax, syscallEax\n"
+		"mov syscallRet, %eax\n"
+		"push %eax\n"
+		"mov syscallEax, %eax\n"
 		"ret"
-		: "=m"(tmpEax), "=m"(ret)
-	);
-	__builtin_unreachable();
-}
+);
+
+extern uint32_t syscall(uint32_t a, uint8_t b, uint8_t c, uint32_t d);
 
 uint32_t test(void) {
 	static uint32_t a = 0;
