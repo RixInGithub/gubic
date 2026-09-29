@@ -29,10 +29,13 @@ extern void*payload;
 
 // log only to com1 if no debug
 #define __internal__debugCToQemu(c)
-#define debugC(c) do {outb(0x3f8, c);__internal__debugCToQemu(c);} while (false)
+#define debugC(c) do {if(COM1){outb(0x3f8,c);}__internal__debugCToQemu(c);} while (false)
 #if EBUG
 	#undef __internal__debugCToQemu
 	#define __internal__debugCToQemu(c) outb(0xe9, c)
+#endif
+#ifndef COM1
+	#define COM1 true
 #endif
 
 #define XXD_OCTETS 16
@@ -43,7 +46,7 @@ void debugS(char*);
 
 void __internal__debugNNewlineless__(uint32_t n, uint8_t shl);
 
-#define __internal__debugNWithCustomLen__(n,l) do {uint32_t trueN = n;debugS("0x");__internal__debugNNewlineless__(trueN, l);debugC(10);} while (false)
+#define __internal__debugNWithCustomLen__(n,l) do {uint32_t __trueN__ = n;debugS("0x");__internal__debugNNewlineless__(__trueN__, l);debugC(10);} while (false)
 #define debugN(n) __internal__debugNWithCustomLen__(n,8)
 #define debugN16(n) __internal__debugNWithCustomLen__(n,4)
 #define debugN8(n) __internal__debugNWithCustomLen__(n,2)
