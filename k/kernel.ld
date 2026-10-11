@@ -2,7 +2,7 @@ OUTPUT_FORMAT(binary)
 
 SECTIONS {
 	. = 0x2000;
-	KSTART = .;
+	__K_START = .;
 	.multiboot : {
 		KEEP(*(.multiboot*))
 	}
@@ -20,7 +20,7 @@ SECTIONS {
 		*(.bss*)
 	}
 	. = 0x11000;
-	KEND = .;
+	__K_END = .;
 	/DISCARD/ : {
 		*(.eh_frame*)
 	}

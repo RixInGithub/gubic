@@ -10,6 +10,9 @@ void*searchTag(uint32_t, uint32_t*);
 
 extern void*payload;
 
+extern uint32_t __K_START[];
+extern uint32_t __K_END[];
+
 #define KEY(meaning, ...) __VA_ARGS__, meaning
 #define _STR(a) #a
 #define STR(a) _STR(a)

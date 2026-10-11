@@ -185,8 +185,10 @@ bool setupAlloc() {
 	bool foundUsable = false;
 	aSz = 0;
 	AllocMeta curr;
+	uintptr_t kStart = (uintptr_t)__K_START;
+	uintptr_t kEnd = (uintptr_t)__K_END;
 	while (ptr<end) {
-		bool usable = (((ptr->t==1)&&(ptr->len>=(sizeof(AllocHdr)+(sizeof(AllocMeta)*amnt))))&&(ptr->baseHi==0));
+		bool usable = (((ptr->t==1)&&(ptr->len>=(sizeof(AllocHdr)+(sizeof(AllocMeta)*amnt))))&&((ptr->baseHi==0)&&(ptr->baseLo>=kStart)));
 		if (usable) {
 			size_t len = roundDown(ptr->len,sizeof(AllocHdr));
 			uintptr_t base = ptr->baseLo;

@@ -86,16 +86,16 @@ uint32_t blend(uint32_t x, uint32_t y, uint32_t col, uint8_t amnt) {
 	if (amnt==0) return rgb;
 	#if NO_BAYER
 		int16_t r1 = (rgb>>24)&0xff;
-		r1 += ((((col>>24)&0xff)-r1)*amnt)/16;
+		r1 += ((((col>>24)&0xff)-r1)*amnt)>>4;
 		int16_t g1 = (rgb>>16)&0xff;
-		g1 += ((((col>>16)&0xff)-g1)*amnt)/16;
+		g1 += ((((col>>16)&0xff)-g1)*amnt)>>4;
 		int16_t b1 = (rgb>>8)&0xff;
-		b1 += ((((col>>8)&0xff)-b1)*amnt)/16;
+		b1 += ((((col>>8)&0xff)-b1)*amnt)>>4;
 		return ((((uint32_t)r1)&0xff)<<24)|((((uint32_t)g1)&0xff)<<16)|((((uint32_t)b1)&0xff)<<8);
 	#elif NO_AA
 		return col;
 	#else
-		uint8_t bayer[] = {
+		static uint8_t bayer[] = {
 			0,	8,	2,	10,
 			12,	4,	14,	6,
 			3,	11,	1,	9,
@@ -127,22 +127,20 @@ void tri(uint32_t col, float x1, float y1, float x2, float y2, float x3, float y
 	float base1 = (a1*(float)(minX))+(b1*(float)(minY))+c1;
 	float base2 = (a2*(float)(minX))+(b2*(float)(minY))+c2;
 	float base3 = (a3*(float)(minX))+(b3*(float)(minY))+c3;
-	// int32_t area = base1+((int32_t)a1*(int32_t)x3)+((int32_t)b1*(int32_t)y3);
-	// the godforsaken area
+	// rest in piss godforsaken area
 	uint32_t yCnt = minY;
 	while (yCnt<=maxY) {
-		int32_t e1 = base1;
-		int32_t e2 = base2;
-		int32_t e3 = base3;
+		float e1 = base1;
+		float e2 = base2;
+		float e3 = base3;
 		uint32_t xCnt = minX;
-		bool gotNonTrans = false;
 		while (xCnt<=maxX) {
 			// msaa
 			#define TRUE_SIDER(n,aM,bM) ((4*e##n)+(aM*a##n)+(bM*b##n))
 			#define SIDER(aM,bM) do { \
-				int32_t s1 = TRUE_SIDER(1,aM,bM); \
-				int32_t s2 = TRUE_SIDER(2,aM,bM); \
-				int32_t s3 = TRUE_SIDER(3,aM,bM); \
+				float s1 = TRUE_SIDER(1,aM,bM); \
+				float s2 = TRUE_SIDER(2,aM,bM); \
+				float s3 = TRUE_SIDER(3,aM,bM); \
 				if (((s1>=0)&&((s2>=0)&&(s3>=0)))||((s1<0)&&((s2<0)&&(s3<0)))) cov+=4; \
 			} while (false)
 			uint32_t cov = 0; // range: 1-16 (0 when no opacity)
@@ -152,8 +150,10 @@ void tri(uint32_t col, float x1, float y1, float x2, float y2, float x3, float y
 			SIDER(1,3);
 			#undef TRUE_SIDER
 			#undef SIDER
-			cov = (cov*opacity)/16;
-			offscreen[(yCnt*fbDim.p)+xCnt] = p32FromRGBA(blend(xCnt,yCnt,col,cov));
+			if (cov>0) {
+				cov = (cov*opacity)>>4;
+				offscreen[(yCnt*fbDim.p)+xCnt] = p32FromRGBA(blend(xCnt,yCnt,col,cov));
+			}
 			xCnt++;
 			e1 += a1;
 			e2 += a2;

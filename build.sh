@@ -65,7 +65,7 @@ rm -rf "$mnt" rd.tar || true
 test $okay = y || exit 1
 if [ "$RUN" = y ]; then
 	escSed="s/([\\\\$\"])/\\\\\1/g" # slash spam
-	qflags="qemu-system-i386 -drive format=raw,file=\"$(echo "$name" | sed -Ee "$escSed")\".img -netdev user,id=mynet0 -device ne2k_pci,netdev=mynet0"
+	qflags="qemu-system-i386 -drive format=raw,file=\"$(echo "$name" | sed -Ee "$escSed")\".img,if=none,id=hd0 -device ich9-ahci,id=ahci -device ide-hd,drive=hd0,bus=ahci.0 -netdev user,id=mynet0 -device ne2k_pci,netdev=mynet0"
 	anticrashExtra="-enable-kvm -m 512 -cpu host" # qemu-system-x86_64: warning: host doesn't support requested feature: CPUID.80000001H:ECX.svm [bit 2]
 	qdis=gtk
 	test "$VNC" = n || qdis="none -vnc :0" # :3
