@@ -174,6 +174,8 @@ gubResp growAlloc(void*a, size_t newItems) {
 }
 
 bool setupAlloc() {
+	#undef COM1
+	#define COM1 false
 	size_t memSz;
 	// interruption from standard programme: memory map finding! yay!
 	MBoot2Mem*mem = searchTag(6, &memSz);

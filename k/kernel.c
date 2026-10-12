@@ -358,16 +358,22 @@ void timerH(void) {
 	msUp++;
 }
 
-uint32_t syscallH(uint32_t a, uint8_t b, uint8_t c, uint32_t d) {
-	debugS("a: ");
-	debugN(a);
-	debugS("b: ");
-	debugN8(b);
-	debugS("c: ");
-	debugN8(c);
-	debugS("d: ");
-	debugN(d);
-	return a+b+c+d;
+uint32_t syscallH(uint32_t op, uint32_t a, uint32_t b, void*c, uint32_t d, void*e, uint32_t f) {
+	debugS("syscall: op: ");
+	debugN(op);
+	switch (op) {
+		case 0:
+			debugL("requested exit");
+			return 1;
+			break;
+		default:
+			debugS("syscall: unknown syscall 0x");
+			__internal__debugNNewlineless__(op, 4);
+			debugL("!");
+			syscallH(0, 0x00000100, 0, 0, 0, 0, 0);
+			return 0;
+	}
+	__builtin_unreachable();
 }
 
 __asm__ (
@@ -538,7 +544,8 @@ void interruptsSetup(void) {
 }
 
 void k(void) {
-	interruptsSetup();
+	#undef COM1
+	#define COM1 false
 	debugL("gubic kernel starting!");
 	debugS("ebx: ");
 	debugN((uint32_t)payload);
@@ -589,10 +596,13 @@ void k(void) {
 	debugN(u.total-u.used);
 	gsoFree(h);
 	freeAlloc(srz);
-	// debugN(syscall(0xaaaaaaaa, 0xbb, 0xcc, 0xdddddddd));
+	// debugN(syscall(0x00000000, ));
 	// your programme will resume as usual now.
 	mouse[0] = fbDim.w>>1;
 	mouse[1] = fbDim.h>>1;
+	#undef COM1
+	#define COM1 true
+	interruptsSetup();
 	uint32_t dt = 0;
 	uint32_t lastUp = 0;
 	uint32_t now;

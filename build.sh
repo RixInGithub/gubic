@@ -26,7 +26,7 @@ noGrub() {
 }
 
 name=gubic
-start=128
+start=64
 mnt=mnt
 DEBUG="${DEBUG:-n}"
 RUN="${RUN:-$DEBUG}"
